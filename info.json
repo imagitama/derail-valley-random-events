@@ -1,0 +1,11 @@
+{
+	"Id": "DerailValleyRandomEvents",
+	"Version": "0.0.1",
+	"DisplayName": "DerailValleyRandomEvents",
+	"Author": "Jared Williams",
+	"EntryMethod": "DerailValleyRandomEvents.Main.Load",
+	"ManagerVersion": "0.32.4",
+	"Repository": "https://raw.githubusercontent.com/imagitama/derail-valley-random-events/main/repository.json",
+	"Requirements": ["CommsRadioAPI"],
+	"LoadAfter": ["CommsRadioAPI"]
+}

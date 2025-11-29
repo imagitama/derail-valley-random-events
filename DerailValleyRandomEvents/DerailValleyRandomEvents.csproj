@@ -1,0 +1,63 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<AssemblyName>DerailValleyRandomEvents</AssemblyName>
+		<TargetFramework>net48</TargetFramework>
+		<LangVersion>latest</LangVersion>
+		<Nullable>enable</Nullable>
+		<WarningsAsErrors>CS8600;CS8602;CS8603</WarningsAsErrors>
+		   <AssemblySearchPaths>
+        $(AssemblySearchPaths);
+        $(ReferencePath)
+    </AssemblySearchPaths>
+	</PropertyGroup>
+
+	<!-- Derail Valley -->
+	<ItemGroup>
+		<Reference Include="Assembly-CSharp" />
+		<Reference Include="DV.Utils" />
+		<Reference Include="DV.RailTrack" />
+		<Reference Include="DV.PointSet" />
+		<Reference Include="DV.OriginShiftInfo" />
+		<Reference Include="WorldStreamer" />
+		<Reference Include="net.smkd.vector3d" />
+		<!-- Mods -->
+		<Reference Include="CommsRadioAPI" />
+	</ItemGroup>
+
+	<!-- Unity -->
+	<ItemGroup>
+		<Reference Include="UnityEngine" />
+		<Reference Include="UnityEngine.CoreModule" />
+		<Reference Include="UnityEngine.AssetBundleModule" />
+		<Reference Include="UnityEngine.PhysicsModule" />
+		<Reference Include="UnityEngine.IMGUIModule" />
+		<Reference Include="UnityEngine.TextRenderingModule" />
+	</ItemGroup>
+
+	<!-- Mod Loader -->
+	<ItemGroup>
+		<PackageReference Include="UnityModManager" Version="0.27.2" />
+	</ItemGroup>
+
+	<!-- Null Checking -->
+	<ItemGroup>
+		<PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
+		<PackageReference Include="Nullable" Version="1.3.1" PrivateAssets="all" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Dependencies Include="Dependencies\**\*" />
+	</ItemGroup>
+	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
+		<!-- Copy to build folder -->
+		<Copy SourceFiles="$(TargetPath)" DestinationFolder="../build/" />
+
+	  <Copy
+		SourceFiles="@(Dependencies)"
+		DestinationFolder="../build/Dependencies/%(RecursiveDir)" />
+
+		<!-- Package after Release build -->
+		<Exec Condition="'$(ConfigurationName)' == 'Release' And '$(OS)' == 'Windows_NT'" Command="powershell -executionpolicy bypass -Command &quot;(../package.ps1)&quot;" />
+		<Exec Condition="'$(ConfigurationName)' == 'Release' And '$(OS)' != 'Windows_NT'" Command="pwsh -Command &quot;(../package.ps1)&quot;" />
+	</Target>
+</Project>
