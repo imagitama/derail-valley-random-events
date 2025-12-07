@@ -8,65 +8,29 @@ using UnityModManagerNet;
 
 namespace DerailValleyRandomEvents;
 
-// source: https://github.com/derail-valley-modding/custom-car-loader/blob/784a307592bba8afb96a05f20b92d22259f1127d/CCL.Types/MiscEnums.cs#L16
-public enum DVLayer
-{
-    Default = 0,
-    TransparentFX = 1,
-    //Ignore Raycast = 2,
-    //,
-    Water = 4,
-    UI = 5,
-    //,
-    //,
-    Terrain = 8,
-    Player = 9,
-    Train_Big_Collider = 10,
-    Train_Walkable = 11,
-    Train_Interior = 12,
-    Interactable = 13,
-    Teleport_Destination = 14,
-    Laser_Pointer_Target = 15,
-    Camera_Dampening = 16,
-    Culling_Sleepers = 17,
-    Culling_Anchors = 18,
-    Culling_Rails = 19,
-    Render_Elements = 20,
-    No_Teleport_Interaction = 21,
-    Inventory = 22,
-    Controller = 23,
-    Hazmat = 24,
-    PostProcessing = 25,
-    Grabbed_Item = 26,
-    World_Item = 27,
-    Reflection_Probe_Only = 28,
-}
-
 public static class ObstactleSpawner
 {
     private static UnityModManager.ModEntry.ModLogger Logger => Main.ModEntry.Logger;
     private static List<ObstacleComponent> _spawnedObstacles = [];
-    private static PhysicMaterial? _rockPhysicMaterial;
+    private static Dictionary<ObstacleType, PhysicMaterial> _physicMaterialsForObstacles = [];
+    public static Vector3? OverrideScale = null;
+    public static Vector3? OverrideRotation = null;
 
-    private static PhysicMaterial GetPhysicMaterialForBiome(Biome biome)
+    private static PhysicMaterial GetPhysicMaterialForObstacle(Obstacle obstacle)
     {
-        switch (biome)
-        {
-            case Biome.Rock:
-                if (_rockPhysicMaterial != null)
-                    return _rockPhysicMaterial;
+        if (_physicMaterialsForObstacles.ContainsKey(obstacle.Type))
+            return _physicMaterialsForObstacles[obstacle.Type];
 
-                _rockPhysicMaterial = new PhysicMaterial("DerailValleyRandomEvents_RockMaterial");
-                _rockPhysicMaterial.dynamicFriction = 0.9f;
-                _rockPhysicMaterial.staticFriction = 1.0f;
-                _rockPhysicMaterial.bounciness = 0f;
-                _rockPhysicMaterial.frictionCombine = PhysicMaterialCombine.Maximum;
-                _rockPhysicMaterial.bounceCombine = PhysicMaterialCombine.Minimum;
+        var physicMaterial = new PhysicMaterial($"DerailValleyRandomEvents_{obstacle.GetType()}");
+        physicMaterial.dynamicFriction = obstacle.DynamicFriction;
+        physicMaterial.staticFriction = obstacle.StaticFriction;
+        physicMaterial.bounciness = obstacle.Bounciness;
+        physicMaterial.frictionCombine = PhysicMaterialCombine.Maximum;
+        physicMaterial.bounceCombine = PhysicMaterialCombine.Minimum;
 
-                return _rockPhysicMaterial;
-        }
+        _physicMaterialsForObstacles[obstacle.Type] = physicMaterial;
 
-        throw new Exception($"Could not get physic material for biome: {biome}");
+        return physicMaterial;
     }
 
     public static void ClearObstacle(ObstacleComponent obstacleComp)
@@ -99,18 +63,31 @@ public static class ObstactleSpawner
         }
     }
 
-    public static ObstacleComponent Spawn(GameObject prefab, Obstacle obstacle, Vector3 localPos)
+    public static ObstacleComponent Spawn(GameObject prefab, Obstacle obstacle, Vector3 localPos, Quaternion? overrideRotation = null)
     {
-        Vector3 globalPos = localPos + OriginShift.currentMove;
+        // Vector3 globalPos = localPos + OriginShift.currentMove;
+        Vector3 globalPos = localPos;
+
+        var rotation = Quaternion.identity;
+
+        if (OverrideRotation != null)
+            rotation = Quaternion.Euler((Vector3)OverrideRotation);
+
+        if (overrideRotation != null)
+            rotation = (Quaternion)overrideRotation;
+
+        if (obstacle.RotationOffset != null)
+            rotation *= (Quaternion)obstacle.RotationOffset;
 
         // keep in the world as it loads
-        // TODO: cleanup to avoid memory
+        // TODO: cleanup to avoid memory issues
         var parent = WorldMover.OriginShiftParent;
 
-        var newObj = UnityEngine.Object.Instantiate(prefab, globalPos, obstacle.Rotate != null ? (Quaternion)obstacle.Rotate : Quaternion.identity, parent);
+        var newObj = UnityEngine.Object.Instantiate(prefab, globalPos, rotation, parent);
 
         var obstacleComp = newObj.AddComponent<ObstacleComponent>();
-        obstacleComp.Obstacle = obstacle;
+        obstacleComp.obstacle = obstacle;
+        obstacleComp.OnStrongImpact = () => OnStrongImpact(obstacle);
 
         // TODO: do this help stop removing on tile load?
         // Object.DontDestroyOnLoad(newObj);
@@ -121,21 +98,12 @@ public static class ObstactleSpawner
         rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
         rb.interpolation = RigidbodyInterpolation.Interpolate;
         rb.mass = UnityEngine.Random.Range(obstacle.MinMass, obstacle.MaxMass);
-        rb.drag = 1f;
-        rb.angularDrag = 1f;
+        rb.drag = obstacle.Drag;
+        rb.angularDrag = obstacle.AngularDrag;
 
         var scale = UnityEngine.Random.Range(obstacle.MinScale, obstacle.MaxScale);
 
-        newObj.transform.localScale = new Vector3(scale, scale, scale);
-
-        switch (obstacle.Biome)
-        {
-            case Biome.Rock:
-                // TODO: make setting
-                rb.drag = 1f;
-                rb.angularDrag = 5f;
-                break;
-        }
+        newObj.transform.localScale = OverrideScale ?? new Vector3(scale, scale, scale);
 
         var collider = newObj.GetComponent<Collider>();
 
@@ -160,13 +128,21 @@ public static class ObstactleSpawner
         if (collider.material == null)
         {
             Logger.Log($"[ObstacleSpawner] No physic material - adding...");
-            collider.material = GetPhysicMaterialForBiome(obstacle.Biome);
+            collider.material = GetPhysicMaterialForObstacle(obstacle);
         }
 
         _spawnedObstacles.Add(obstacleComp);
 
-        Logger.Log($"[ObstacleSpawner] Spawned obstacle {newObj} from prefab {prefab.name} at local={localPos} global={globalPos} into parent={parent}");
+        Logger.Log($"[ObstacleSpawner] Spawned obstacle {obstacle} as go={newObj} prefab={prefab} local={localPos} global={globalPos} parent={parent}");
 
         return obstacleComp;
+    }
+
+    private static void OnStrongImpact(Obstacle obstacle)
+    {
+        Logger.Log($"[ObstacleSpawner] On strong impact (derailing) obstacle={obstacle}");
+
+        if (PlayerManager.Car != null)
+            PlayerManager.Car.Derail();
     }
 }

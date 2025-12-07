@@ -5,10 +5,16 @@
 		<LangVersion>latest</LangVersion>
 		<Nullable>enable</Nullable>
 		<WarningsAsErrors>CS8600;CS8602;CS8603</WarningsAsErrors>
-		   <AssemblySearchPaths>
-        $(AssemblySearchPaths);
-        $(ReferencePath)
-    </AssemblySearchPaths>
+		<AssemblySearchPaths>
+			$(AssemblySearchPaths);
+			$(ReferencePath)
+		</AssemblySearchPaths>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+		<DefineConstants>DEBUG;TRACE</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)' == 'Release'">
+		<DefineConstants>TRACE</DefineConstants>
 	</PropertyGroup>
 
 	<!-- Derail Valley -->
@@ -20,8 +26,10 @@
 		<Reference Include="DV.OriginShiftInfo" />
 		<Reference Include="WorldStreamer" />
 		<Reference Include="net.smkd.vector3d" />
+		<Reference Include="BezierCurves" />
 		<!-- Mods -->
 		<Reference Include="CommsRadioAPI" />
+		<Reference Include="DerailValleyModToolbar" />
 	</ItemGroup>
 
 	<!-- Unity -->
@@ -51,13 +59,10 @@
 	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
 		<!-- Copy to build folder -->
 		<Copy SourceFiles="$(TargetPath)" DestinationFolder="../build/" />
+		<Copy SourceFiles="icon.png" DestinationFolder="../build" />
 
 	  <Copy
 		SourceFiles="@(Dependencies)"
 		DestinationFolder="../build/Dependencies/%(RecursiveDir)" />
-
-		<!-- Package after Release build -->
-		<Exec Condition="'$(ConfigurationName)' == 'Release' And '$(OS)' == 'Windows_NT'" Command="powershell -executionpolicy bypass -Command &quot;(../package.ps1)&quot;" />
-		<Exec Condition="'$(ConfigurationName)' == 'Release' And '$(OS)' != 'Windows_NT'" Command="pwsh -Command &quot;(../package.ps1)&quot;" />
 	</Target>
 </Project>

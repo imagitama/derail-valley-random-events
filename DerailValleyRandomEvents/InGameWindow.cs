@@ -1,118 +1,212 @@
 using DV.OriginShift;
 using UnityEngine;
 using UnityModManagerNet;
+using DerailValleyModToolbar;
 
 namespace DerailValleyRandomEvents;
 
-public class InGameWindow : MonoBehaviour
+public class InGameWindow : MonoBehaviour, IModToolbarPanel
 {
     private UnityModManager.ModEntry.ModLogger Logger => Main.ModEntry.Logger;
-    private bool showGui = false;
-    private Rect buttonRect = new Rect(20, 30, 20, 20); // TODO: avoid conflict with other mods (currently just DV Utilities mod)
-    private Rect windowRect = new Rect(20, 30, 0, 0);
-    private Rect scrollRect;
-    private Vector2 scrollPosition;
-    private bool isClickToSpawnEnabled = false;
     private ObstacleType _selectedType = ObstacleType.Rockslide;
     private bool _showDropdown = false;
+    private GameObject? _spawner;
 
-    public void Show()
+    void OnDestroy()
     {
-
+        Logger.Log($"[InGameWindow] Destroy");
+        Object.Destroy(_spawner);
     }
 
-    void OnGUI()
+    void SpawnAtSpawner()
     {
-        if (PlayerManager.PlayerTransform == null)
+        if (_spawner == null)
         {
-            showGui = false;
-            return;
+            CreateSpawner();
+            var playerLocalPos = PlayerUtils.GetPlayerLocalPosition();
+
+            if (playerLocalPos == null)
+                return;
+
+            MoveSpawnerToLocalPos((Vector3)playerLocalPos);
+            MakeSpawnerLookAtCamera();
         }
 
-        if (!VRManager.IsVREnabled() && ScreenspaceMouse.Instance && !ScreenspaceMouse.Instance.on) return;
+        Logger.Log($"[InGameWindow] Spawn at spawner={_spawner}");
 
-        if (GUI.Button(buttonRect, "RE", new GUIStyle(GUI.skin.button) { fontSize = 10, clipping = TextClipping.Overflow })) showGui = !showGui;
-
-        if (showGui)
-        {
-            float scale = 1.5f;
-            Vector2 pivot = Vector2.zero; // top-left corner
-
-            Matrix4x4 oldMatrix = GUI.matrix;
-            GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(scale, scale, 1f));
-
-            windowRect = GUILayout.Window(555, windowRect, Window, "Random Events");
-
-            GUI.matrix = oldMatrix;
-        }
-
-        if (isClickToSpawnEnabled && Event.current.type == EventType.MouseDown && Event.current.button == 0)
-        {
-            SpawnFromCamera(Event.current.mousePosition);
-        }
+        Vector3 pos = _spawner!.transform.position;
+        Spawn(pos);
     }
 
-    void SpawnFromCamera(Vector2 mousePos)
+    void SpawnNormally()
     {
-        Logger.Log($"[InGameWindow] Spawn at camera");
+        Logger.Log("[InGameWindow] Spawn normally");
+        Main.randomEventsManager.EmitObstacleEventAhead();
+    }
 
+    void MakeSpawnerLookAtCamera()
+    {
         var cam = PlayerManager.ActiveCamera;
-        if (cam == null) return;
+        if (cam == null || _spawner == null)
+            return;
 
-        Ray ray = cam.ScreenPointToRay(mousePos);
+        var localPos = cam.transform.position;
 
-        var mask = LayerMask.GetMask("Terrain");
+        Vector3 flatTarget = new Vector3(localPos.x, _spawner.transform.position.y, localPos.z);
 
-        if (Physics.Raycast(ray, out RaycastHit hit, 2000f, mask))
-        {
-            Logger.Log($"[InGameWindow] Raycast success: point={hit.point} transform={hit.transform}");
+        _spawner.transform.LookAt(flatTarget);
+    }
 
-            Vector3 globalPos = hit.point;
-            Vector3 localPos = globalPos - OriginShift.currentMove;
-            Spawn(localPos);
-        }
-        else
-        {
-            Logger.Log($"[InGameWindow] Raycast failed");
-        }
+    void CreateSpawner()
+    {
+        Logger.Log("[InGameWindow] Create spawner...");
+
+        var arrow = MeshUtils.CreateArrow();
+        arrow.gameObject.name = "DerailValleyRandomEvents_Spawner";
+
+        var safeParent = WorldMover.OriginShiftParent;
+
+        arrow.transform.SetParent(safeParent);
+
+        _spawner = arrow;
+    }
+
+    void MoveSpawnerToLocalPos(Vector3 localPos, bool? withOffset = true)
+    {
+        if (_spawner == null)
+            CreateSpawner();
+
+        Logger.Log($"[InGameWindow] Move spawner to localPos={localPos}");
+
+        var localPosHigher = new Vector3(localPos.x, localPos.y + (withOffset == true ? 2f : 0), localPos.z);
+
+        _spawner!.transform.position = localPosHigher;
     }
 
     void Spawn(Vector3 localPos)
     {
         Logger.Log($"[InGameWindow] Spawn at {localPos}");
 
-        var obstacle = Main.RandomEventsManager.obstacles[_selectedType];
+        var obstacle = Main.randomEventsManager.Obstacles[_selectedType];
 
-        var prefab = Main.RandomEventsManager.GetRandomObstaclePrefab(obstacle);
+        var prefab = Main.randomEventsManager.GetObstaclePrefab(obstacle);
 
-        Main.RandomEventsManager.EmitObstacleEventAtPos(localPos, obstacle, prefab);
+        var rotation = _spawner!.transform.rotation;
+
+        Main.randomEventsManager.EmitObstacleEventAtPos(localPos, obstacle, prefab, rotation);
     }
 
-    void SpawnAhead()
+    void ForceObtacleAhead()
     {
-        Logger.Log($"[InGameWindow] Spawn ahead");
+        Logger.Log($"[InGameWindow] Force obstacle ahead");
 
-        Main.RandomEventsManager.EmitObstacleEventAhead(overrideType: _selectedType, forceForwards: true);
+        Main.randomEventsManager.EmitObstacleEventAhead(overrideType: _selectedType);
     }
 
-    void ClearAll()
+    void ClearAllObstacles()
     {
-        Logger.Log($"[InGameWindow] Clear all");
+        Logger.Log($"[InGameWindow] Clear all obstacles");
 
         ObstactleSpawner.ClearAllObstacles();
     }
 
-
-    void Window(int windowId)
+    void MoveSpawnerToCameraTarget()
     {
-        scrollPosition = GUILayout.BeginScrollView(scrollPosition, GUILayout.Width(270 + GUI.skin.verticalScrollbar.fixedWidth), GUILayout.Height(scrollRect.height + GUI.skin.box.margin.vertical), GUILayout.MaxHeight(Screen.height - 130));
-        GUILayout.BeginVertical();
+        Logger.Log($"[InGameWindow] Move spawner to camera target");
 
-        GUILayout.Label("");
+        Camera cam = PlayerManager.ActiveCamera;
+        if (cam == null)
+            return;
 
-        GUILayout.Label("Use the UnityModManager settings to configure the mod (ctrl+F10)");
+        Vector3 origin = cam.transform.position;
+        Vector3 direction = cam.transform.forward;
 
-        GUILayout.Label("");
+        int mask = 1 << (int)DVLayer.Terrain;
+
+        if (Physics.Raycast(origin, direction, out RaycastHit hit, 50f, mask))
+        {
+            Logger.Log($"[InGameWindow] Raycast hit at {hit.point} on {hit.transform?.name}");
+
+            Vector3 localPos = hit.point;
+
+            MoveSpawnerToLocalPos(localPos);
+        }
+        else
+        {
+            float fallbackDistance = 50f;
+            Vector3 airPoint = origin + direction * fallbackDistance;
+
+            Logger.Log($"[InGameWindow] Raycast missed - using the air pos={airPoint}");
+
+            MoveSpawnerToLocalPos(airPoint, withOffset: false);
+        }
+
+        MakeSpawnerLookAtCamera();
+    }
+
+    void MoveSpawnerOffset(Vector3 localOffset)
+    {
+        if (!_spawner)
+            return;
+
+        var localPos = _spawner!.transform.position;
+        var newLocalPos = localPos + localOffset;
+
+        Logger.Log($"[InGameWindow] Move spawner from={localPos} offset={localOffset} newPos={newLocalPos}");
+
+        MoveSpawnerToLocalPos(newLocalPos, withOffset: false);
+    }
+
+    void RotateSpawnerOffset(Vector3 localOffset)
+    {
+        if (!_spawner)
+            return;
+
+        var currentRot = _spawner!.transform.rotation;
+        var delta = Quaternion.Euler(localOffset);
+        var newRot = currentRot * delta;
+        _spawner.transform.rotation = newRot;
+    }
+
+    void MoveSpawnerToClosestTrack()
+    {
+        if (!_spawner)
+            CreateSpawner();
+
+        Vector3? playerGlobalPos = PlayerUtils.GetPlayerGlobalPosition();
+
+        if (playerGlobalPos == null)
+        {
+            Logger.Log("No player global pos");
+            return;
+        }
+
+        var (closestTrack, closestPoint) = RailTrack.GetClosest((Vector3)playerGlobalPos);
+
+        Logger.Log($"Closest track={closestTrack} point={closestPoint}");
+
+        if (closestTrack == null || closestPoint == null)
+        {
+            Logger.Log("Need closest data");
+            return;
+        }
+
+        var newLocalPos = ((Vector3)closestPoint.Value.position) - OriginShift.currentMove;
+
+        Logger.Log($"Move spawner to local={newLocalPos}");
+
+        _spawner!.transform.position = newLocalPos;
+
+        // TODO: face correctly
+    }
+
+    public void Window(Rect rect)
+    {
+        // handle unload
+        if (Main.randomEventsManager == null)
+            return;
+
+        GUILayout.Label("More options in mod settings (ctrl+F10)");
 
         if (GUILayout.Button($"Selected: {_selectedType}"))
             _showDropdown = !_showDropdown;
@@ -127,81 +221,386 @@ public class InGameWindow : MonoBehaviour
                 {
                     _selectedType = (ObstacleType)i;
                     _showDropdown = false;
+                    HydrateEditor();
                 }
             }
         }
 
         GUILayout.Label("");
 
-        isClickToSpawnEnabled = GUILayout.Toggle(isClickToSpawnEnabled, "Click to spawn");
+        if (GUILayout.Button("Move Spawner To Camera"))
+        {
+            MoveSpawnerToCameraTarget();
+        }
+
+        // if (GUILayout.Button("Move Spawner To Track"))
+        // {
+        //     MoveSpawnerToClosestTrack();
+        // }
+
+        GUILayout.Label("Move Spawner");
+
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Button("Up"))
+        {
+            MoveSpawnerOffset(new Vector3(0, 0.5f, 0));
+        }
+        if (GUILayout.Button("Down"))
+        {
+            MoveSpawnerOffset(new Vector3(0, -0.5f, 0));
+        }
+        if (GUILayout.Button("Left"))
+        {
+            MoveSpawnerOffset(new Vector3(0.5f, 0, 0));
+        }
+        if (GUILayout.Button("Right"))
+        {
+            MoveSpawnerOffset(new Vector3(-0.5f, 0, 0));
+        }
+        if (GUILayout.Button("Forward"))
+        {
+            MoveSpawnerOffset(new Vector3(0, 0, 0.5f));
+        }
+        if (GUILayout.Button("Back"))
+        {
+            MoveSpawnerOffset(new Vector3(0, 0, -0.5f));
+        }
+        GUILayout.EndHorizontal();
+
+        GUILayout.Label("Rotate Spawner");
+
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Button("Right"))
+        {
+            RotateSpawnerOffset(new Vector3(0, 45f, 0));
+        }
+        if (GUILayout.Button("Left"))
+        {
+            RotateSpawnerOffset(new Vector3(0, -45f, 0));
+        }
+        if (GUILayout.Button("R. Left"))
+        {
+            RotateSpawnerOffset(new Vector3(-45f, 0, 0));
+        }
+        if (GUILayout.Button("R. Right"))
+        {
+            RotateSpawnerOffset(new Vector3(45f, 0, 0));
+        }
+        if (GUILayout.Button("Up"))
+        {
+            RotateSpawnerOffset(new Vector3(0, 0, -45f));
+        }
+        if (GUILayout.Button("Down"))
+        {
+            RotateSpawnerOffset(new Vector3(0, 0, 45f));
+        }
+        GUILayout.EndHorizontal();
+
+        DrawTransformControls();
+
+        GUILayout.Label("");
+
+        if (GUILayout.Button("Spawn At Spawner"))
+        {
+            SpawnAtSpawner();
+        }
+        if (GUILayout.Button("Spawn Normally"))
+        {
+            SpawnNormally();
+        }
 
         GUILayout.Label("");
 
         if (GUILayout.Button("Force event ahead (must be in car)"))
         {
-            SpawnAhead();
+            ForceObtacleAhead();
         }
 
         GUILayout.Label("");
 
-        if (GUILayout.Button("Clear All"))
+        if (GUILayout.Button("Clear All Obstacles"))
         {
-            ClearAll();
+            ClearAllObstacles();
         }
-
-        GUILayout.Label("");
-
-        Main.RandomEventsManager.ShouldDrawDebugStuff = GUILayout.Toggle(Main.RandomEventsManager.ShouldDrawDebugStuff, "Show debug stuff");
 
         GUILayout.Label("");
 
         DrawOverrideForm();
 
-        GUILayout.EndVertical();
-        if (Event.current.type == EventType.Repaint)
+        GUILayout.Label("");
+
+        if (GUILayout.Button("Rerail Train"))
         {
-            scrollRect = GUILayoutUtility.GetLastRect();
+            RerailTrain();
         }
-        GUILayout.EndScrollView();
+    }
+
+    void RerailTrain()
+    {
+        Logger.Log("Rerail train");
+
+        if (PlayerManager.Car == null)
+            return;
+
+        var (closestTrack, pos) = RailTrack.GetClosest(PlayerManager.Car.transform.position);
+
+        if (pos == null)
+            return;
+
+        PlayerManager.Car.Rerail(closestTrack, (Vector3)pos.Value.position, PlayerManager.Car.transform.forward);
+    }
+
+    private bool _overrideTransform = false;
+    private Vector3? newScale = null;
+    private Vector3? newRotation = null;
+    private string _scaleXText = "1.0";
+    private string _scaleYText = "1.0";
+    private string _scaleZText = "1.0";
+    private string _rotationXText = "1.0";
+    private string _rotationYText = "1.0";
+    private string _rotationZText = "1.0";
+
+    void DrawTransformControls()
+    {
+        var nowEnabled = GUILayout.Toggle(_overrideTransform, "Override transform");
+
+        if (nowEnabled != _overrideTransform)
+        {
+            if (nowEnabled)
+            {
+                newScale = new Vector3(1, 1, 1);
+                newRotation = new Vector3(1, 1, 1);
+            }
+            else
+            {
+                newScale = null;
+                newRotation = null;
+
+                ObstactleSpawner.OverrideScale = null;
+                ObstactleSpawner.OverrideRotation = null;
+            }
+
+            _overrideTransform = nowEnabled;
+        }
+
+        if (!_overrideTransform || newScale == null || newRotation == null)
+            return;
+
+        var scale = (Vector3)newScale;
+
+        GUILayout.Label("Scale X:");
+        _scaleXText = GUILayout.TextField(_scaleXText, GUILayout.Width(100));
+        GUILayout.Label("Scale Y:");
+        _scaleYText = GUILayout.TextField(_scaleYText, GUILayout.Width(100));
+        GUILayout.Label("Scale Z:");
+        _scaleZText = GUILayout.TextField(_scaleZText, GUILayout.Width(100));
+
+        if (float.TryParse(_scaleXText, out float scaleX))
+        {
+            scale.x = scaleX;
+        }
+        if (float.TryParse(_scaleYText, out float scaleY))
+        {
+            scale.y = scaleY;
+        }
+        if (float.TryParse(_scaleZText, out float scaleZ))
+        {
+            scale.z = scaleZ;
+        }
+
+        newScale = scale;
+
+        var rotation = (Vector3)newRotation;
+
+        GUILayout.Label("Rotation X:");
+        _rotationXText = GUILayout.TextField(_rotationXText, GUILayout.Width(100));
+        GUILayout.Label("Rotation Y:");
+        _rotationYText = GUILayout.TextField(_rotationYText, GUILayout.Width(100));
+        GUILayout.Label("Rotation Z:");
+        _rotationZText = GUILayout.TextField(_rotationZText, GUILayout.Width(100));
+
+        if (float.TryParse(_rotationXText, out float rotationX))
+        {
+            rotation.x = rotationX;
+        }
+        if (float.TryParse(_rotationYText, out float rotationY))
+        {
+            rotation.y = rotationY;
+        }
+        if (float.TryParse(_rotationZText, out float rotationZ))
+        {
+            rotation.z = rotationZ;
+        }
+
+        newRotation = rotation;
+
+        ObstactleSpawner.OverrideScale = newScale;
+        ObstactleSpawner.OverrideRotation = newRotation;
+    }
+
+    private string _minSpawnCountText = "";
+    private string _maxSpawnCountText = "";
+    private string _spawnHeightFromGroundText = "";
+    private string _spawnGapText = "";
+    private string _minScaleText = "";
+    private string _maxScaleText = "";
+    private string _minMassText = "";
+    private string _maxMassText = "";
+    private string _dragText = "";
+    private string _angularDragText = "";
+    private string _dynamicFrictionText = "";
+    private string _staticFrictionText = "";
+    private string _bouncinessText = "";
+    private string _gravityText = "";
+    private string _impulseThresholdText = "";
+
+    void HydrateEditor()
+    {
+        var obstacle = Main.randomEventsManager.OverrideObstacle;
+
+        Logger.Log($"Hydrate editor type={_selectedType} obstacle={obstacle}");
+
+        if (obstacle == null)
+            return;
+
+        _minSpawnCountText = obstacle.MinSpawnCount.ToString();
+        _maxSpawnCountText = obstacle.MaxSpawnCount.ToString();
+        _spawnHeightFromGroundText = obstacle.SpawnHeightFromGround.ToString();
+        _spawnGapText = obstacle.SpawnGap.ToString();
+        _minScaleText = obstacle.MinScale.ToString();
+        _maxScaleText = obstacle.MaxScale.ToString();
+        _minMassText = obstacle.MinMass.ToString();
+        _maxMassText = obstacle.MaxMass.ToString();
+        _dragText = obstacle.Drag.ToString();
+        _angularDragText = obstacle.AngularDrag.ToString();
+        _dynamicFrictionText = obstacle.DynamicFriction.ToString();
+        _staticFrictionText = obstacle.StaticFriction.ToString();
+        _bouncinessText = obstacle.Bounciness.ToString();
+        _gravityText = obstacle.Gravity.ToString();
+        _impulseThresholdText = obstacle.ImpulseThreshold.ToString();
     }
 
     void DrawOverrideForm()
     {
-        var isEnabled = Main.RandomEventsManager.OverrideObstacle != null;
+        var isEnabled = Main.randomEventsManager.OverrideObstacle != null;
 
         var nowEnabled = GUILayout.Toggle(isEnabled, "Override obstacles");
 
         if (nowEnabled != isEnabled)
         {
             if (nowEnabled)
-                Main.RandomEventsManager.OverrideObstacle = Main.RandomEventsManager.obstacles[_selectedType];
+            {
+                Main.randomEventsManager.OverrideObstacle = Main.randomEventsManager.Obstacles[_selectedType].Clone();
+            }
             else
-                Main.RandomEventsManager.OverrideObstacle = null;
+            {
+                Main.randomEventsManager.OverrideObstacle = null;
+            }
+            HydrateEditor();
         }
 
-        var o = Main.RandomEventsManager.OverrideObstacle;
+        var obstacle = Main.randomEventsManager.OverrideObstacle;
 
-        if (o == null)
+        if (obstacle == null)
             return;
 
-        GUILayout.Label("Fall Time (ms):");
-        o.FallTimeMs = int.Parse(GUILayout.TextField(o.FallTimeMs.ToString(), GUILayout.Width(100)));
+        GUILayout.Label("Spawn Count Min / Max:");
+        _minSpawnCountText = GUILayout.TextField(_minSpawnCountText, GUILayout.Width(100));
+        if (int.TryParse(_minSpawnCountText, out int minSpawnCountResult))
+        {
+            obstacle.MinSpawnCount = minSpawnCountResult;
+        }
+        _maxSpawnCountText = GUILayout.TextField(_maxSpawnCountText, GUILayout.Width(100));
+        if (int.TryParse(_maxSpawnCountText, out int maxSpawnCountResult))
+        {
+            obstacle.MaxSpawnCount = maxSpawnCountResult;
+        }
 
-        GUILayout.Label("Spawn Count:");
-        o.SpawnCount = int.Parse(GUILayout.TextField(o.SpawnCount.ToString(), GUILayout.Width(100)));
+        GUILayout.Label("Spawn Height (meters):");
+        _spawnHeightFromGroundText = GUILayout.TextField(_spawnHeightFromGroundText, GUILayout.Width(100));
+        if (float.TryParse(_spawnHeightFromGroundText, out float spawnHeightFromGroundResult))
+        {
+            obstacle.SpawnHeightFromGround = spawnHeightFromGroundResult;
+        }
 
-        GUILayout.Label("Spawn Height:");
-        o.SpawnHeightFromGround = float.Parse(GUILayout.TextField(o.SpawnHeightFromGround.ToString("0.###"), GUILayout.Width(100)));
+        GUILayout.Label("Spawn Gap (meters):");
+        _spawnGapText = GUILayout.TextField(_spawnGapText, GUILayout.Width(100));
+        if (float.TryParse(_spawnGapText, out float spawnGapResult))
+        {
+            obstacle.SpawnGap = spawnGapResult;
+        }
 
-        GUILayout.Label("Spawn Gap:");
-        o.SpawnGap = float.Parse(GUILayout.TextField(o.SpawnGap.ToString("0.###"), GUILayout.Width(100)));
+        GUILayout.Label("Scale Min / Max (multiplier):");
+        _minScaleText = GUILayout.TextField(_minScaleText, GUILayout.Width(100));
+        if (float.TryParse(_minScaleText, out float minScaleResult))
+        {
+            obstacle.MinScale = minScaleResult;
+        }
+        _maxScaleText = GUILayout.TextField(_maxScaleText, GUILayout.Width(100));
+        if (float.TryParse(_maxScaleText, out float maxScaleResult))
+        {
+            obstacle.MaxScale = maxScaleResult;
+        }
 
-        GUILayout.Label("Scale Min / Max:");
-        o.MinScale = float.Parse(GUILayout.TextField(o.MinScale.ToString("0.###"), GUILayout.Width(100)));
-        o.MaxScale = float.Parse(GUILayout.TextField(o.MaxScale.ToString("0.###"), GUILayout.Width(100)));
+        GUILayout.Label("Mass Min / Max (4000+ for train crash):");
+        _minMassText = GUILayout.TextField(_minMassText, GUILayout.Width(100));
+        if (float.TryParse(_minMassText, out float minMassResult))
+        {
+            obstacle.MinMass = minMassResult;
+        }
+        _maxMassText = GUILayout.TextField(_maxMassText, GUILayout.Width(100));
+        if (float.TryParse(_maxMassText, out float maxMassResult))
+        {
+            obstacle.MaxMass = maxMassResult;
+        }
 
-        GUILayout.Label("Mass Min / Max:");
-        o.MinMass = float.Parse(GUILayout.TextField(o.MinMass.ToString("0.###"), GUILayout.Width(100)));
-        o.MaxMass = float.Parse(GUILayout.TextField(o.MaxMass.ToString("0.###"), GUILayout.Width(100)));
+        GUILayout.Label("Drag (rock = 0):");
+        _dragText = GUILayout.TextField(_dragText, GUILayout.Width(100));
+        if (float.TryParse(_dragText, out float dragResult))
+        {
+            obstacle.Drag = dragResult;
+        }
+
+        GUILayout.Label("Angular Drag (spinning drag, rock = 0):");
+        _angularDragText = GUILayout.TextField(_angularDragText, GUILayout.Width(100));
+        if (float.TryParse(_angularDragText, out float angularDragResult))
+        {
+            obstacle.AngularDrag = angularDragResult;
+        }
+
+        GUILayout.Label("Dynamic Friction:");
+        _dynamicFrictionText = GUILayout.TextField(_dynamicFrictionText, GUILayout.Width(100));
+        if (float.TryParse(_dynamicFrictionText, out float dynamicFrictionResult))
+        {
+            obstacle.DynamicFriction = dynamicFrictionResult;
+        }
+
+        GUILayout.Label("Static Friction:");
+        _staticFrictionText = GUILayout.TextField(_staticFrictionText, GUILayout.Width(100));
+        if (float.TryParse(_staticFrictionText, out float staticFrictionResult))
+        {
+            obstacle.StaticFriction = staticFrictionResult;
+        }
+
+        GUILayout.Label("Bounciness:");
+        _bouncinessText = GUILayout.TextField(_bouncinessText, GUILayout.Width(100));
+        if (float.TryParse(_bouncinessText, out float bouncinessResult))
+        {
+            obstacle.Bounciness = bouncinessResult;
+        }
+
+        GUILayout.Label("Gravity (1 = normal):");
+        _gravityText = GUILayout.TextField(_gravityText, GUILayout.Width(100));
+        if (float.TryParse(_gravityText, out float gravityResult))
+        {
+            obstacle.Gravity = gravityResult;
+        }
+
+        GUILayout.Label("Derail Threshold (100,000 or more):");
+        _impulseThresholdText = GUILayout.TextField(_impulseThresholdText, GUILayout.Width(100));
+        if (float.TryParse(_impulseThresholdText, out float impulseThresholdResult))
+        {
+            obstacle.ImpulseThreshold = impulseThresholdResult;
+        }
     }
 }

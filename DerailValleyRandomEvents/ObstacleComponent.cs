@@ -1,4 +1,6 @@
 using System;
+using System.Linq;
+using dnlib.DotNet.MD;
 using UnityEngine;
 using UnityModManagerNet;
 
@@ -10,20 +12,56 @@ public class ObstacleComponent : MonoBehaviour
     private bool _isHighlighted = false;
     private Material? _highlightMaterial;
     private GameObject? _highlightObject;
-    public Obstacle Obstacle;
+    public Obstacle obstacle;
+    public Rigidbody rigidbody;
+    public Action OnStrongImpact;
+
+    void Start()
+    {
+        Logger.Log($"Obstacle.Start obstacle={obstacle}");
+
+        rigidbody = GetComponent<Rigidbody>();
+
+        if (rigidbody == null)
+            throw new Exception("No rigidbody");
+    }
+
+    void FixedUpdate()
+    {
+        if (rigidbody == null || obstacle.Gravity == 1f)
+            return;
+
+        rigidbody.AddForce(Physics.gravity * (obstacle.Gravity - 1f) * rigidbody.mass);
+    }
+
+    void OnCollisionEnter(Collision collision)
+    {
+        var impulse = collision.impulse.magnitude;
+
+        if (GetIsLocoColliding(collision) && impulse >= obstacle.ImpulseThreshold)
+        {
+            Logger.Log($"Obstacle.OnStrongImpact obstacle={obstacle}");
+            OnStrongImpact.Invoke();
+        }
+    }
+
+    bool GetIsLocoColliding(Collision collision)
+    {
+        // TODO: cache/do this way better
+        return PlayerManager.Car != null && collision.collider == PlayerManager.Car.carColliders.transform.GetComponentsInChildren<Collider>().ToList().Contains(collision.collider);
+    }
 
     public string GetObstacleInfo()
     {
-        if (Obstacle == null)
+        if (obstacle == null)
             throw new Exception("Need an obstacle");
 
         // TODO: better
-        return $"{Obstacle.Type}";
+        return $"{obstacle.Type}";
     }
 
     public void SetIsHighlighted(bool isHighlighted, Material? highlightMaterial = null)
     {
-
         _isHighlighted = isHighlighted;
         _highlightMaterial = highlightMaterial;
 

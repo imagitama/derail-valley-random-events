@@ -1,0 +1,33 @@
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Mm]emoryCaptures/
+
+# Visual Studio / VSCode
+.vs/
+*.csproj
+*.sln
+*.user
+*.pidb
+*.booproj
+*.unityproj
+
+# Cache
+sysinfo.txt
+
+# Crash logs
+*.stacktrace
+
+# Rider / IntelliJ
+.idea/
+
+# Collaborate
+.collab/
+
+# Asset Store tools
+Assets/AssetStoreTools*
+
+AssetBundles
