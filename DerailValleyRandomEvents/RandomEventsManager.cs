@@ -117,7 +117,6 @@ public class RandomEventsManager
     private GameObject? _updateDriver;
     private GameObject? _debugSphere;
     private float _nextCleanupTime;
-    public bool EnableRandomEvents = true;
     public Obstacle? OverrideObstacle = null;
 
     public Dictionary<ObstacleType, Obstacle> Obstacles = new()
@@ -304,7 +303,7 @@ public class RandomEventsManager
 
     private bool GetShouldEmitRandomEvent()
     {
-        if (!EnableRandomEvents)
+        if (!Main.settings.RandomSpawningEnabled)
             return false;
 
         var chance = Main.settings.RandomChance;
@@ -368,11 +367,11 @@ public class RandomEventsManager
         }
     }
 
-    public void EmitObstacleEventAhead(ObstacleType? overrideType = null)
+    public void EmitObstacleEventAhead(ObstacleType? overrideType = null, float? distance = null)
     {
         Logger.Log($"[RandomEventsManager] Emit obstacle event ahead override={overrideType} speed={GetTrainSpeed()} forwards={GetIsTrainMovingForwards()}");
 
-        var obstacleLocalPos = GetObstaclePositionFromCarLocal();
+        var obstacleLocalPos = GetObstaclePositionFromCarLocal(distance);
 
         if (obstacleLocalPos == null)
             return;
@@ -473,7 +472,7 @@ public class RandomEventsManager
         return movingFowards;
     }
 
-    private Vector3? GetObstaclePositionFromCarLocal()
+    private Vector3? GetObstaclePositionFromCarLocal(float? overrideDistance = null)
     {
         Logger.Log($"[RandomEventsManager] Choosing obstacle position...");
 
@@ -491,7 +490,9 @@ public class RandomEventsManager
 
         Logger.Log($"[RandomEventsManager] Starting at track '{currentTrack.name}' at position {startLocalPos}");
 
-        var (resultTrack, resultLocalPos) = TrackWalking.GetAheadTrack(currentTrack, startLocalPos, car.rb.velocity, Main.settings.ObstacleSpawnDistance);
+        var distance = overrideDistance != null ? overrideDistance.Value : Main.settings.ObstacleSpawnDistance;
+
+        var (resultTrack, resultLocalPos) = TrackWalking.GetAheadTrack(currentTrack, startLocalPos, car.rb.velocity, distance);
 
         Logger.Log($"[RandomEventsManager] Chosen position {resultLocalPos} on track '{resultTrack.name}'");
 

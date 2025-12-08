@@ -1,3 +1,5 @@
+# WORK IN PROGRESS - USE AT OWN RISK (DO NOT USE IN YOUR CAREER SAVES)
+
 # Derail Valley Random Events mod
 
 A mod for the game [Derail Valley](https://store.steampowered.com/app/588030/Derail_Valley/) that makes random events occur as you're driving your train through the world.

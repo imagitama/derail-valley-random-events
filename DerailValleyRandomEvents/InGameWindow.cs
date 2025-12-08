@@ -11,6 +11,7 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
     private ObstacleType _selectedType = ObstacleType.Rockslide;
     private bool _showDropdown = false;
     private GameObject? _spawner;
+    private float _spawnAheadDistance = 50f;
 
     void OnDestroy()
     {
@@ -42,6 +43,12 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
     {
         Logger.Log("[InGameWindow] Spawn normally");
         Main.randomEventsManager.EmitObstacleEventAhead();
+    }
+
+    void SpawnAhead()
+    {
+        Logger.Log($"[InGameWindow] Spawn ahead at {_spawnAheadDistance}");
+        Main.randomEventsManager.EmitObstacleEventAhead(distance: _spawnAheadDistance);
     }
 
     void MakeSpawnerLookAtCamera()
@@ -208,6 +215,15 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
 
         GUILayout.Label("More options in mod settings (ctrl+F10)");
 
+        var newEnabled = GUILayout.Toggle(Main.settings.RandomSpawningEnabled, "Random spawning enabled");
+
+        if (newEnabled != Main.settings.RandomSpawningEnabled)
+        {
+            Logger.Log($"Toggled random spawning {Main.settings.RandomSpawningEnabled} => {newEnabled}");
+            Main.settings.RandomSpawningEnabled = newEnabled;
+            Main.settings.Save(Main.ModEntry);
+        }
+
         if (GUILayout.Button($"Selected: {_selectedType}"))
             _showDropdown = !_showDropdown;
 
@@ -307,6 +323,16 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         if (GUILayout.Button("Spawn Normally"))
         {
             SpawnNormally();
+        }
+
+        GUILayout.BeginHorizontal();
+        GUILayout.Label("5m", GUILayout.Width(40));
+        _spawnAheadDistance = GUILayout.HorizontalSlider(_spawnAheadDistance, 5f, 100f);
+        GUILayout.Label("100m", GUILayout.Width(70));
+        GUILayout.EndHorizontal();
+        if (GUILayout.Button("Spawn Ahead"))
+        {
+            SpawnAhead();
         }
 
         GUILayout.Label("");
