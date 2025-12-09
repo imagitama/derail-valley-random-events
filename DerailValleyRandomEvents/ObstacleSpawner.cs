@@ -1,14 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using DV.OriginShift;
-using DV.WorldTools;
 using UnityEngine;
 using UnityModManagerNet;
 
 namespace DerailValleyRandomEvents;
 
-public static class ObstactleSpawner
+public static class ObstacleSpawner
 {
     private static UnityModManager.ModEntry.ModLogger Logger => Main.ModEntry.Logger;
     private static List<ObstacleComponent> _spawnedObstacles = [];
@@ -41,6 +39,11 @@ public static class ObstactleSpawner
         _spawnedObstacles.Remove(obstacleComp);
     }
 
+    public static List<ObstacleComponent> GetAllObstacles()
+    {
+        return _spawnedObstacles;
+    }
+
     public static void ClearAllObstacles()
     {
         Main.ModEntry.Logger.Log($"[ObstacleSpawner] Clear all obstacles");
@@ -63,11 +66,37 @@ public static class ObstactleSpawner
         }
     }
 
-    public static ObstacleComponent Spawn(GameObject prefab, Obstacle obstacle, Vector3 localPos, Quaternion? overrideRotation = null)
+    public static void AddMissingCollider(GameObject obj, Obstacle obstacle)
     {
-        // Vector3 globalPos = localPos + OriginShift.currentMove;
-        Vector3 globalPos = localPos;
+        var collider = obj.GetComponent<Collider>();
 
+        if (collider == null)
+        {
+            Logger.Log("[ObstacleSpawner] No collider - adding mesh collider...");
+
+            MeshCollider meshCollider = obj.AddComponent<MeshCollider>();
+            meshCollider.convex = true;
+
+            MeshFilter meshFilter = obj.GetComponentInChildren<MeshFilter>();
+
+            if (meshFilter == null)
+                throw new Exception($"No mesh filter found inside '{obj}'");
+
+            meshCollider.sharedMesh = meshFilter.sharedMesh;
+            collider = meshCollider;
+
+            Logger.Log($"[ObstacleSpawner] No collider - adding mesh collider done - collider={meshCollider} mesh={meshCollider.sharedMesh}");
+        }
+
+        if (collider.material == null)
+        {
+            Logger.Log($"[ObstacleSpawner] No physic material - adding...");
+            collider.material = GetPhysicMaterialForObstacle(obstacle);
+        }
+    }
+
+    public static GameObject Create(GameObject prefab, Obstacle obstacle, Quaternion? overrideRotation = null)
+    {
         var rotation = Quaternion.identity;
 
         if (OverrideRotation != null)
@@ -83,7 +112,7 @@ public static class ObstactleSpawner
         // TODO: cleanup to avoid memory issues
         var parent = WorldMover.OriginShiftParent;
 
-        var newObj = UnityEngine.Object.Instantiate(prefab, globalPos, rotation, parent);
+        var newObj = UnityEngine.Object.Instantiate(prefab, Vector3.zero, rotation, parent);
 
         var obstacleComp = newObj.AddComponent<ObstacleComponent>();
         obstacleComp.obstacle = obstacle;
@@ -105,42 +134,18 @@ public static class ObstactleSpawner
 
         newObj.transform.localScale = OverrideScale ?? new Vector3(scale, scale, scale);
 
-        var collider = newObj.GetComponent<Collider>();
-
-        if (collider == null)
-        {
-            Logger.Log("[ObstacleSpawner] No collider - adding mesh collider...");
-
-            MeshCollider meshCollider = newObj.AddComponent<MeshCollider>();
-            meshCollider.convex = true;
-
-            MeshFilter meshFilter = newObj.GetComponentInChildren<MeshFilter>();
-
-            if (meshFilter == null)
-                throw new Exception($"No mesh filter found inside '{newObj}'");
-
-            meshCollider.sharedMesh = meshFilter.sharedMesh;
-            collider = meshCollider;
-
-            Logger.Log($"[ObstacleSpawner] No collider - adding mesh collider done - collider={meshCollider} mesh={meshCollider.sharedMesh}");
-        }
-
-        if (collider.material == null)
-        {
-            Logger.Log($"[ObstacleSpawner] No physic material - adding...");
-            collider.material = GetPhysicMaterialForObstacle(obstacle);
-        }
+        AddMissingCollider(newObj, obstacle);
 
         _spawnedObstacles.Add(obstacleComp);
 
-        Logger.Log($"[ObstacleSpawner] Spawned obstacle {obstacle} as go={newObj} prefab={prefab} local={localPos} global={globalPos} parent={parent}");
+        Logger.Log($"[ObstacleSpawner] Created obstacle type={obstacle.Type} go={newObj} prefab={prefab}");
 
-        return obstacleComp;
+        return newObj;
     }
 
     private static void OnStrongImpact(Obstacle obstacle)
     {
-        Logger.Log($"[ObstacleSpawner] On strong impact (derailing) obstacle={obstacle}");
+        Logger.Log($"[ObstacleSpawner] On strong impact (derailing) type={obstacle.Type}");
 
         if (PlayerManager.Car != null)
             PlayerManager.Car.Derail();

@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using dnlib.DotNet.MD;
+using DV.Localization.Debug;
 using UnityEngine;
 using UnityModManagerNet;
 
@@ -15,33 +16,121 @@ public class ObstacleComponent : MonoBehaviour
     public Obstacle obstacle;
     public Rigidbody rigidbody;
     public Action OnStrongImpact;
+    // exploding
+    private Transform baseStuff;
+    private Transform explodingStuff;
 
     void Start()
     {
-        Logger.Log($"Obstacle.Start obstacle={obstacle}");
+        Logger.Log($"Obstacle.Start type={obstacle.Type}");
 
         rigidbody = GetComponent<Rigidbody>();
 
         if (rigidbody == null)
             throw new Exception("No rigidbody");
+
+        if (obstacle.ExplodeThreshold != null)
+            SetupExploding();
     }
+
+    void SetupExploding()
+    {
+        Logger.Log($"Obstacle.SetupExploding");
+
+        baseStuff = transform.Find("[Base]");
+
+        if (baseStuff == null)
+            throw new Exception("Need [Base]");
+
+        explodingStuff = transform.Find("[Explode]");
+
+        if (explodingStuff == null)
+            throw new Exception("Need [Explode]");
+
+        explodingStuff.gameObject.SetActive(false);
+    }
+
+    void OnExplode()
+    {
+        Logger.Log($"Explode! force={obstacle.ExplodeForce.Value} radius={obstacle.ExplodeRadius.Value} upwards={obstacle.ExplodeUpwards.Value}");
+
+        baseStuff.gameObject.SetActive(false);
+
+        Destroy(rigidbody);
+
+        Destroy(GetComponent<Collider>());
+
+        explodingStuff.gameObject.SetActive(true);
+
+        var bodies = explodingStuff.GetComponentsInChildren<Rigidbody>();
+        foreach (var rb in bodies)
+        {
+            rb.gameObject.layer = (int)DVLayer.Train_Big_Collider;
+            rb.AddExplosionForce(obstacle.ExplodeForce.Value, transform.position, obstacle.ExplodeRadius.Value, obstacle.ExplodeUpwards.Value, ForceMode.Impulse);
+        }
+
+        var particles = explodingStuff.GetComponentsInChildren<ParticleSystem>();
+        foreach (var ps in particles)
+        {
+            ps.transform.localScale = Vector3.one * 2;
+            ps.Play();
+        }
+    }
+
+    void LookAtPlayer()
+    {
+        var aimPos = PlayerManager.PlayerTransform.position;
+
+        if (PlayerManager.Car != null)
+            aimPos = PlayerManager.Car.transform.position;
+
+        aimPos.y = transform.position.y;
+        transform.LookAt(aimPos);
+    }
+
+    private float stillThreshold = 0.1f;
 
     void FixedUpdate()
     {
-        if (rigidbody == null || obstacle.Gravity == 1f)
+        if (rigidbody == null)
             return;
 
-        rigidbody.AddForce(Physics.gravity * (obstacle.Gravity - 1f) * rigidbody.mass);
+        if (obstacle.Gravity != 1)
+        {
+            rigidbody.AddForce(Physics.gravity * (obstacle.Gravity - 1f) * rigidbody.mass);
+        }
+
+        if (obstacle.LookAtPlayer)
+        {
+            if (rigidbody.velocity.sqrMagnitude < stillThreshold * stillThreshold)
+                LookAtPlayer();
+        }
+    }
+
+    bool GetMustExplode(float impulse)
+    {
+        if (obstacle.ExplodeThreshold == null || obstacle.ExplodeForce == null || obstacle.ExplodeRadius == null || obstacle.ExplodeUpwards == null)
+            return false;
+
+        return impulse >= obstacle.ExplodeThreshold;
     }
 
     void OnCollisionEnter(Collision collision)
     {
         var impulse = collision.impulse.magnitude;
 
-        if (GetIsLocoColliding(collision) && impulse >= obstacle.ImpulseThreshold)
+        if (GetIsLocoColliding(collision))
         {
-            Logger.Log($"Obstacle.OnStrongImpact obstacle={obstacle}");
-            OnStrongImpact.Invoke();
+            if (impulse >= obstacle.DerailThreshold)
+            {
+                Logger.Log($"Obstacle.OnStrongImpact type={obstacle.Type}");
+                OnStrongImpact.Invoke();
+            }
+
+            if (GetMustExplode(impulse))
+            {
+                OnExplode();
+            }
         }
     }
 

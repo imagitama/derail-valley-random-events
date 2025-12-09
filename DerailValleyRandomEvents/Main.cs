@@ -89,7 +89,7 @@ public static class Main
         commsRadioManager.Stop();
         commsRadioManager = null;
 
-        ObstactleSpawner.ClearAllObstacles();
+        ObstacleSpawner.ClearAllObstacles();
 
         ModToolbarAPI.Unregister(modEntry);
 

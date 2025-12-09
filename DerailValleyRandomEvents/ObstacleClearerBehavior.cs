@@ -29,9 +29,12 @@ class ObstacleClearerBehavior : AStateBehaviour
 
     private void ClearObstacle()
     {
-        Logger.Log($"[ObstacleClearerBehavior] Clear obstacle={_obstacleToClear}");
+        if (_obstacleToClear == null)
+            return;
 
-        ObstactleSpawner.ClearObstacle(_obstacleToClear!);
+        Logger.Log($"[ObstacleClearerBehavior] Clear type={_obstacleToClear.obstacle.Type}");
+
+        ObstacleSpawner.ClearObstacle(_obstacleToClear);
     }
 
     public void PointToObstacle(ObstacleComponent? obstacle, CommsRadioUtility? utility = null)
@@ -60,7 +63,7 @@ class ObstacleClearerBehavior : AStateBehaviour
 
     public override AStateBehaviour OnUpdate(CommsRadioUtility utility)
     {
-        ObstactleSpawner.UnhighlightAllSpawnedObstacles();
+        ObstacleSpawner.UnhighlightAllSpawnedObstacles();
 
         if (Physics.Raycast(utility.SignalOrigin.position, utility.SignalOrigin.forward, out var hit, 100f, _mask))
         {
@@ -82,7 +85,7 @@ class ObstacleClearerBehavior : AStateBehaviour
     {
         Logger.Log($"[ObstacleClearerBehavior] OnLeave next={next}");
 
-        ObstactleSpawner.UnhighlightAllSpawnedObstacles();
+        ObstacleSpawner.UnhighlightAllSpawnedObstacles();
     }
 
     public override AStateBehaviour OnAction(CommsRadioUtility utility, InputAction action)

@@ -1,6 +1,6 @@
 {
 	"Id": "DerailValleyRandomEvents",
-	"Version": "0.0.2",
+	"Version": "0.0.3-b1",
 	"DisplayName": "Random Events",
 	"Author": "Jared Williams",
 	"EntryMethod": "DerailValleyRandomEvents.Main.Load",

@@ -8,10 +8,10 @@ namespace DerailValleyRandomEvents;
 public class InGameWindow : MonoBehaviour, IModToolbarPanel
 {
     private UnityModManager.ModEntry.ModLogger Logger => Main.ModEntry.Logger;
-    private ObstacleType _selectedType = ObstacleType.Rockslide;
+    private ObstacleType? _selectedType = ObstacleType.Rockslide;
     private bool _showDropdown = false;
     private GameObject? _spawner;
-    private float _spawnAheadDistance = 50f;
+    private float _spawnAheadDistance = 25f;
 
     void OnDestroy()
     {
@@ -42,13 +42,47 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
     void SpawnNormally()
     {
         Logger.Log("[InGameWindow] Spawn normally");
-        Main.randomEventsManager.EmitObstacleEventAhead();
+
+        Main.randomEventsManager.EmitObstacleEventAhead(new SpawnEvent()
+        {
+            obstacleType = _selectedType
+        });
     }
 
     void SpawnAhead()
     {
-        Logger.Log($"[InGameWindow] Spawn ahead at {_spawnAheadDistance}");
-        Main.randomEventsManager.EmitObstacleEventAhead(distance: _spawnAheadDistance);
+        Logger.Log($"[InGameWindow] Spawn ahead type={_selectedType} distance={_spawnAheadDistance}");
+
+        Main.randomEventsManager.EmitObstacleEventAhead(new SpawnEvent()
+        {
+            obstacleType = _selectedType,
+            distance = _spawnAheadDistance,
+            ignoreNearbyCheck = true
+        });
+    }
+
+    void SpawnBehind()
+    {
+        Logger.Log($"[InGameWindow] Spawn behind type={_selectedType} distance={_spawnAheadDistance}");
+
+        Main.randomEventsManager.EmitObstacleEventAhead(new SpawnEvent()
+        {
+            obstacleType = _selectedType,
+            distance = _spawnAheadDistance,
+            ignoreNearbyCheck = true,
+            flipDirection = true
+        });
+    }
+
+    void SpawnAheadAtDefaultDistance()
+    {
+        Logger.Log($"[InGameWindow] Force obstacle ahead");
+
+        Main.randomEventsManager.EmitObstacleEventAhead(new SpawnEvent()
+        {
+            obstacleType = _selectedType,
+            ignoreNearbyCheck = true
+        });
     }
 
     void MakeSpawnerLookAtCamera()
@@ -92,29 +126,25 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
 
     void Spawn(Vector3 localPos)
     {
-        Logger.Log($"[InGameWindow] Spawn at {localPos}");
+        Logger.Log($"[InGameWindow] Spawn type={_selectedType} at={localPos}");
 
-        var obstacle = Main.randomEventsManager.Obstacles[_selectedType];
+        if (_selectedType == null)
+            return;
+
+        var obstacle = ObstacleRegistry.GetObstacleByType(_selectedType.Value);
 
         var prefab = Main.randomEventsManager.GetObstaclePrefab(obstacle);
 
         var rotation = _spawner!.transform.rotation;
 
-        Main.randomEventsManager.EmitObstacleEventAtPos(localPos, obstacle, prefab, rotation);
-    }
-
-    void ForceObtacleAhead()
-    {
-        Logger.Log($"[InGameWindow] Force obstacle ahead");
-
-        Main.randomEventsManager.EmitObstacleEventAhead(overrideType: _selectedType);
+        Main.randomEventsManager.EmitObstacleEventAtPos(new SpawnEvent() { intendedPos = localPos }, obstacle, prefab, rotation);
     }
 
     void ClearAllObstacles()
     {
         Logger.Log($"[InGameWindow] Clear all obstacles");
 
-        ObstactleSpawner.ClearAllObstacles();
+        ObstacleSpawner.ClearAllObstacles();
     }
 
     void MoveSpawnerToCameraTarget()
@@ -235,7 +265,14 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
             {
                 if (GUILayout.Button(names[i]))
                 {
-                    _selectedType = (ObstacleType)i;
+                    if (_selectedType == (ObstacleType)i)
+                        _selectedType = null;
+                    else
+                    {
+                        _selectedType = (ObstacleType)i;
+                        Main.randomEventsManager.OverrideObstacle = ObstacleRegistry.GetObstacleByType(_selectedType.Value).Clone();
+                    }
+
                     _showDropdown = false;
                     HydrateEditor();
                 }
@@ -248,11 +285,6 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         {
             MoveSpawnerToCameraTarget();
         }
-
-        // if (GUILayout.Button("Move Spawner To Track"))
-        // {
-        //     MoveSpawnerToClosestTrack();
-        // }
 
         GUILayout.Label("Move Spawner");
 
@@ -316,6 +348,7 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
 
         GUILayout.Label("");
 
+        GUILayout.BeginHorizontal();
         if (GUILayout.Button("Spawn At Spawner"))
         {
             SpawnAtSpawner();
@@ -324,36 +357,35 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         {
             SpawnNormally();
         }
+        GUILayout.EndHorizontal();
 
         GUILayout.BeginHorizontal();
-        GUILayout.Label("5m", GUILayout.Width(40));
         _spawnAheadDistance = GUILayout.HorizontalSlider(_spawnAheadDistance, 5f, 100f);
-        GUILayout.Label("100m", GUILayout.Width(70));
+        GUILayout.Label($"{_spawnHeightFromGroundText}m", GUILayout.Width(70));
         GUILayout.EndHorizontal();
+
+        GUILayout.BeginHorizontal();
         if (GUILayout.Button("Spawn Ahead"))
         {
             SpawnAhead();
         }
-
-        GUILayout.Label("");
-
-        if (GUILayout.Button("Force event ahead (must be in car)"))
+        if (GUILayout.Button("Spawn Behind"))
         {
-            ForceObtacleAhead();
+            SpawnBehind();
         }
+        GUILayout.EndHorizontal();
 
-        GUILayout.Label("");
+        if (GUILayout.Button("Spawn Ahead (Default Distance)"))
+        {
+            SpawnAheadAtDefaultDistance();
+        }
 
         if (GUILayout.Button("Clear All Obstacles"))
         {
             ClearAllObstacles();
         }
 
-        GUILayout.Label("");
-
         DrawOverrideForm();
-
-        GUILayout.Label("");
 
         if (GUILayout.Button("Rerail Train"))
         {
@@ -368,12 +400,10 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         if (PlayerManager.Car == null)
             return;
 
-        var (closestTrack, pos) = RailTrack.GetClosest(PlayerManager.Car.transform.position);
-
-        if (pos == null)
-            return;
-
-        PlayerManager.Car.Rerail(closestTrack, (Vector3)pos.Value.position, PlayerManager.Car.transform.forward);
+        if (PlayerManager.Car.derailed)
+            TrainCarHelper.RerailTrain(PlayerManager.Car);
+        else
+            TrainCarHelper.ReverseTrain(PlayerManager.Car);
     }
 
     private bool _overrideTransform = false;
@@ -402,8 +432,8 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
                 newScale = null;
                 newRotation = null;
 
-                ObstactleSpawner.OverrideScale = null;
-                ObstactleSpawner.OverrideRotation = null;
+                ObstacleSpawner.OverrideScale = null;
+                ObstacleSpawner.OverrideRotation = null;
             }
 
             _overrideTransform = nowEnabled;
@@ -460,14 +490,15 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
 
         newRotation = rotation;
 
-        ObstactleSpawner.OverrideScale = newScale;
-        ObstactleSpawner.OverrideRotation = newRotation;
+        ObstacleSpawner.OverrideScale = newScale;
+        ObstacleSpawner.OverrideRotation = newRotation;
     }
 
     private string _minSpawnCountText = "";
     private string _maxSpawnCountText = "";
     private string _spawnHeightFromGroundText = "";
-    private string _spawnGapText = "";
+    private string _verticalSpawnGapText = "";
+    private string _horizontalSpawnGapText = "";
     private string _minScaleText = "";
     private string _maxScaleText = "";
     private string _minMassText = "";
@@ -478,13 +509,17 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
     private string _staticFrictionText = "";
     private string _bouncinessText = "";
     private string _gravityText = "";
-    private string _impulseThresholdText = "";
+    private string _derailThresholdText = "";
+    private string _explodeThresholdText = "";
+    private string _explodeForceText = "";
+    private string _explodeRadiusText = "";
+    private string _explodeUpwardsText = "";
 
     void HydrateEditor()
     {
         var obstacle = Main.randomEventsManager.OverrideObstacle;
 
-        Logger.Log($"Hydrate editor type={_selectedType} obstacle={obstacle}");
+        Logger.Log($"Hydrate editor type={_selectedType}");
 
         if (obstacle == null)
             return;
@@ -492,7 +527,8 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         _minSpawnCountText = obstacle.MinSpawnCount.ToString();
         _maxSpawnCountText = obstacle.MaxSpawnCount.ToString();
         _spawnHeightFromGroundText = obstacle.SpawnHeightFromGround.ToString();
-        _spawnGapText = obstacle.SpawnGap.ToString();
+        _verticalSpawnGapText = obstacle.VerticalSpawnGap.ToString();
+        _horizontalSpawnGapText = obstacle.HorizontalSpawnGap.ToString();
         _minScaleText = obstacle.MinScale.ToString();
         _maxScaleText = obstacle.MaxScale.ToString();
         _minMassText = obstacle.MinMass.ToString();
@@ -503,7 +539,11 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         _staticFrictionText = obstacle.StaticFriction.ToString();
         _bouncinessText = obstacle.Bounciness.ToString();
         _gravityText = obstacle.Gravity.ToString();
-        _impulseThresholdText = obstacle.ImpulseThreshold.ToString();
+        _derailThresholdText = obstacle.DerailThreshold.ToString();
+        _explodeThresholdText = obstacle.ExplodeThreshold.ToString();
+        _explodeForceText = obstacle.ExplodeForce.ToString();
+        _explodeRadiusText = obstacle.ExplodeRadius.ToString();
+        _explodeUpwardsText = obstacle.ExplodeUpwards.ToString();
     }
 
     void DrawOverrideForm()
@@ -514,9 +554,9 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
 
         if (nowEnabled != isEnabled)
         {
-            if (nowEnabled)
+            if (nowEnabled && _selectedType != null)
             {
-                Main.randomEventsManager.OverrideObstacle = Main.randomEventsManager.Obstacles[_selectedType].Clone();
+                Main.randomEventsManager.OverrideObstacle = ObstacleRegistry.GetObstacleByType(_selectedType.Value).Clone();
             }
             else
             {
@@ -530,6 +570,7 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         if (obstacle == null)
             return;
 
+        GUILayout.BeginHorizontal();
         GUILayout.Label("Spawn Count Min / Max:");
         _minSpawnCountText = GUILayout.TextField(_minSpawnCountText, GUILayout.Width(100));
         if (int.TryParse(_minSpawnCountText, out int minSpawnCountResult))
@@ -541,21 +582,36 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         {
             obstacle.MaxSpawnCount = maxSpawnCountResult;
         }
+        GUILayout.EndHorizontal();
 
+        GUILayout.BeginHorizontal();
         GUILayout.Label("Spawn Height (meters):");
         _spawnHeightFromGroundText = GUILayout.TextField(_spawnHeightFromGroundText, GUILayout.Width(100));
         if (float.TryParse(_spawnHeightFromGroundText, out float spawnHeightFromGroundResult))
         {
             obstacle.SpawnHeightFromGround = spawnHeightFromGroundResult;
         }
+        GUILayout.EndHorizontal();
 
-        GUILayout.Label("Spawn Gap (meters):");
-        _spawnGapText = GUILayout.TextField(_spawnGapText, GUILayout.Width(100));
-        if (float.TryParse(_spawnGapText, out float spawnGapResult))
+        GUILayout.BeginHorizontal();
+        GUILayout.Label("Vertical spawn gap (meters):");
+        _verticalSpawnGapText = GUILayout.TextField(_verticalSpawnGapText, GUILayout.Width(100));
+        if (float.TryParse(_verticalSpawnGapText, out float verticalSpawnGapNum))
         {
-            obstacle.SpawnGap = spawnGapResult;
+            obstacle.VerticalSpawnGap = verticalSpawnGapNum;
         }
+        GUILayout.EndHorizontal();
+        GUILayout.BeginHorizontal();
 
+        GUILayout.Label("Horizontal spawn gap (meters):");
+        _horizontalSpawnGapText = GUILayout.TextField(_horizontalSpawnGapText, GUILayout.Width(100));
+        if (float.TryParse(_horizontalSpawnGapText, out float horizontalSpawnGapNum))
+        {
+            obstacle.HorizontalSpawnGap = horizontalSpawnGapNum;
+        }
+        GUILayout.EndHorizontal();
+
+        GUILayout.BeginHorizontal();
         GUILayout.Label("Scale Min / Max (multiplier):");
         _minScaleText = GUILayout.TextField(_minScaleText, GUILayout.Width(100));
         if (float.TryParse(_minScaleText, out float minScaleResult))
@@ -567,7 +623,9 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         {
             obstacle.MaxScale = maxScaleResult;
         }
+        GUILayout.EndHorizontal();
 
+        GUILayout.BeginHorizontal();
         GUILayout.Label("Mass Min / Max (4000+ for train crash):");
         _minMassText = GUILayout.TextField(_minMassText, GUILayout.Width(100));
         if (float.TryParse(_minMassText, out float minMassResult))
@@ -579,54 +637,107 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         {
             obstacle.MaxMass = maxMassResult;
         }
+        GUILayout.EndHorizontal();
 
+        GUILayout.BeginHorizontal();
         GUILayout.Label("Drag (rock = 0):");
         _dragText = GUILayout.TextField(_dragText, GUILayout.Width(100));
         if (float.TryParse(_dragText, out float dragResult))
         {
             obstacle.Drag = dragResult;
         }
+        GUILayout.EndHorizontal();
 
+        GUILayout.BeginHorizontal();
         GUILayout.Label("Angular Drag (spinning drag, rock = 0):");
         _angularDragText = GUILayout.TextField(_angularDragText, GUILayout.Width(100));
         if (float.TryParse(_angularDragText, out float angularDragResult))
         {
             obstacle.AngularDrag = angularDragResult;
         }
+        GUILayout.EndHorizontal();
 
+        GUILayout.BeginHorizontal();
         GUILayout.Label("Dynamic Friction:");
         _dynamicFrictionText = GUILayout.TextField(_dynamicFrictionText, GUILayout.Width(100));
         if (float.TryParse(_dynamicFrictionText, out float dynamicFrictionResult))
         {
             obstacle.DynamicFriction = dynamicFrictionResult;
         }
+        GUILayout.EndHorizontal();
 
+        GUILayout.BeginHorizontal();
         GUILayout.Label("Static Friction:");
         _staticFrictionText = GUILayout.TextField(_staticFrictionText, GUILayout.Width(100));
         if (float.TryParse(_staticFrictionText, out float staticFrictionResult))
         {
             obstacle.StaticFriction = staticFrictionResult;
         }
+        GUILayout.EndHorizontal();
 
+        GUILayout.BeginHorizontal();
         GUILayout.Label("Bounciness:");
         _bouncinessText = GUILayout.TextField(_bouncinessText, GUILayout.Width(100));
         if (float.TryParse(_bouncinessText, out float bouncinessResult))
         {
             obstacle.Bounciness = bouncinessResult;
         }
+        GUILayout.EndHorizontal();
 
+        GUILayout.BeginHorizontal();
         GUILayout.Label("Gravity (1 = normal):");
         _gravityText = GUILayout.TextField(_gravityText, GUILayout.Width(100));
         if (float.TryParse(_gravityText, out float gravityResult))
         {
             obstacle.Gravity = gravityResult;
         }
+        GUILayout.EndHorizontal();
 
-        GUILayout.Label("Derail Threshold (100,000 or more):");
-        _impulseThresholdText = GUILayout.TextField(_impulseThresholdText, GUILayout.Width(100));
-        if (float.TryParse(_impulseThresholdText, out float impulseThresholdResult))
+        GUILayout.BeginHorizontal();
+        GUILayout.Label("Derail Threshold (100,000+):");
+        _derailThresholdText = GUILayout.TextField(_derailThresholdText, GUILayout.Width(100));
+        if (float.TryParse(_derailThresholdText, out float derailThresholdResult))
         {
-            obstacle.ImpulseThreshold = impulseThresholdResult;
+            obstacle.DerailThreshold = derailThresholdResult;
         }
+        GUILayout.EndHorizontal();
+
+        // EXPLOSION
+
+        GUILayout.BeginHorizontal();
+        GUILayout.Label("Explode Threshold (100,000+, 0 to disable):");
+        _explodeThresholdText = GUILayout.TextField(_explodeThresholdText, GUILayout.Width(100));
+        if (float.TryParse(_explodeThresholdText, out float explodeThresholdNum))
+        {
+            obstacle.ExplodeThreshold = explodeThresholdNum == 0 ? null : explodeThresholdNum;
+        }
+        GUILayout.EndHorizontal();
+
+        GUILayout.BeginHorizontal();
+        GUILayout.Label("Explode Force:");
+        _explodeForceText = GUILayout.TextField(_explodeForceText, GUILayout.Width(100));
+        if (float.TryParse(_explodeForceText, out float explodeForceNum))
+        {
+            obstacle.ExplodeForce = explodeForceNum == 0 ? null : explodeForceNum;
+        }
+        GUILayout.EndHorizontal();
+
+        GUILayout.BeginHorizontal();
+        GUILayout.Label("Explode Radius:");
+        _explodeRadiusText = GUILayout.TextField(_explodeRadiusText, GUILayout.Width(100));
+        if (float.TryParse(_explodeRadiusText, out float explodeRadiusNum))
+        {
+            obstacle.ExplodeRadius = explodeRadiusNum == 0 ? null : explodeRadiusNum;
+        }
+        GUILayout.EndHorizontal();
+
+        GUILayout.BeginHorizontal();
+        GUILayout.Label("Explode Upwards:");
+        _explodeUpwardsText = GUILayout.TextField(_explodeUpwardsText, GUILayout.Width(100));
+        if (float.TryParse(_explodeUpwardsText, out float explodeUpwardsNum))
+        {
+            obstacle.ExplodeUpwards = explodeUpwardsNum == 0 ? null : explodeUpwardsNum;
+        }
+        GUILayout.EndHorizontal();
     }
 }

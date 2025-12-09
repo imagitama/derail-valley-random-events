@@ -403,3 +403,6 @@ FodyWeavers.xsd
 *.sln
 *.zip
 TODO
+*.blend1
+Obstacles/ObstaclesUnity/Assets/UnityTechnologies/
+Obstacles/ObstaclesUnity/Assets/Scripts/

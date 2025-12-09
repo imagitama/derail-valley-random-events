@@ -91,21 +91,24 @@ public static class TrackWalking
 
     public static (RailTrack, Vector3) GetAheadTrack(this RailTrack current, Vector3 startWorldPos, Vector3 velocity, double aheadDistance)
     {
-        var worldPos = startWorldPos;
-
-        var closestT = GetClosestT(current.curve, worldPos);
+        var closestT = GetClosestT(current.curve, startWorldPos);
         var currentCarDistanceOnTrack = current.curve.length * closestT;
-
         var isForwardOnTrack = IsTravellingForward(velocity, current.curve.GetPointAt(0), current.curve.GetPointAt(1));
-
         return current.GetAheadTrackWithDirection(currentCarDistanceOnTrack, isForwardOnTrack, aheadDistance);
     }
 
-    public static (RailTrack, Vector3) GetAheadTrackWithDirection(this RailTrack current, double currentCarSpan, bool direction, double aheadDistance)
+    public static (RailTrack, Vector3) GetAheadTrack(this RailTrack current, Vector3 startWorldPos, bool isForwardOnTrack, double aheadDistance)
     {
-        aheadDistance -= direction ? current.curve.length - currentCarSpan : currentCarSpan;
+        var closestT = GetClosestT(current.curve, startWorldPos);
+        var currentCarDistanceOnTrack = current.curve.length * closestT;
+        return current.GetAheadTrackWithDirection(currentCarDistanceOnTrack, isForwardOnTrack, aheadDistance);
+    }
 
-        Logger.Log($"GetAheadTrack current={current.name} length={current.curve.length} carSpan={currentCarSpan} direction={direction} distance={aheadDistance}");
+    public static (RailTrack, Vector3) GetAheadTrackWithDirection(this RailTrack current, double currentDistance, bool direction, double aheadDistance)
+    {
+        aheadDistance -= direction ? current.curve.length - currentDistance : currentDistance;
+
+        Logger.Log($"GetAheadTrack current={current.name} length={current.curve.length} currentDistance={currentDistance} direction={direction} aheadDistance={aheadDistance}");
 
         while (aheadDistance >= 0.0f)
         {

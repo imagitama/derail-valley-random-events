@@ -27,7 +27,11 @@
 		<Reference Include="WorldStreamer" />
 		<Reference Include="net.smkd.vector3d" />
 		<Reference Include="BezierCurves" />
-		<!-- Mods -->
+		<Reference Include="DV.BrakeSystem" />
+	</ItemGroup>
+
+	<!-- Other Mods -->
+	<ItemGroup>
 		<Reference Include="CommsRadioAPI" />
 		<Reference Include="DerailValleyModToolbar" />
 	</ItemGroup>
@@ -40,6 +44,7 @@
 		<Reference Include="UnityEngine.PhysicsModule" />
 		<Reference Include="UnityEngine.IMGUIModule" />
 		<Reference Include="UnityEngine.TextRenderingModule" />
+		<Reference Include="UnityEngine.ParticleSystemModule" />
 	</ItemGroup>
 
 	<!-- Mod Loader -->
