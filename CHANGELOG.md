@@ -1,8 +1,11 @@
 # 0.0.3
 
 - added cow!
-- chooses obstacle based on biome
-- better UI
+- defaults to obstacles in your current biome:
+  - rocks -> Rock
+  - fallen trees -> Forest
+  - cows -> Meadow, Field
+  - ramp -> (never - use UI to spawn)
 
 # 0.0.2
 
