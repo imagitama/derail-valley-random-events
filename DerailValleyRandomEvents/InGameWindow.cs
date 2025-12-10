@@ -10,8 +10,41 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
     private UnityModManager.ModEntry.ModLogger Logger => Main.ModEntry.Logger;
     private ObstacleType? _selectedType = ObstacleType.Rockslide;
     private bool _showDropdown = false;
-    private GameObject? _spawner;
     private float _spawnAheadDistance = 25f;
+    // spawner
+    private GameObject? _spawner;
+    private bool _overrideTransform = false;
+    private Vector3? newScale = null;
+    private Vector3? newRotation = null;
+    private string _scaleXText = "1.0";
+    private string _scaleYText = "1.0";
+    private string _scaleZText = "1.0";
+    private string _rotationXText = "1.0";
+    private string _rotationYText = "1.0";
+    private string _rotationZText = "1.0";
+    // event editor
+    private string _minSpawnCountText = "";
+    private string _maxSpawnCountText = "";
+    private string _spawnHeightFromGroundText = "";
+    private string _verticalSpawnGapText = "";
+    private string _horizontalSpawnGapText = "";
+    private string _minScaleText = "";
+    private string _maxScaleText = "";
+    private string _minMassText = "";
+    private string _maxMassText = "";
+    private string _dragText = "";
+    private string _angularDragText = "";
+    private string _dynamicFrictionText = "";
+    private string _staticFrictionText = "";
+    private string _bouncinessText = "";
+    private string _gravityText = "";
+    private string _derailThresholdText = "";
+    private string _explodeThresholdText = "";
+    private string _explodeForceText = "";
+    private string _explodeRadiusText = "";
+    private string _explodeUpwardsText = "";
+    private bool _showOverrideForm = false;
+    private bool _showSpawnerStuff = false;
 
     void OnDestroy()
     {
@@ -39,7 +72,7 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         Spawn(pos);
     }
 
-    void SpawnNormally()
+    void ForceNormalSpawnEvent()
     {
         Logger.Log("[InGameWindow] Spawn normally");
 
@@ -214,23 +247,23 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
 
         if (playerGlobalPos == null)
         {
-            Logger.Log("No player global pos");
+            Logger.Log("[InGameWindow] No player global pos");
             return;
         }
 
         var (closestTrack, closestPoint) = RailTrack.GetClosest((Vector3)playerGlobalPos);
 
-        Logger.Log($"Closest track={closestTrack} point={closestPoint}");
+        Logger.Log($"[InGameWindow] Closest track={closestTrack} point={closestPoint}");
 
         if (closestTrack == null || closestPoint == null)
         {
-            Logger.Log("Need closest data");
+            Logger.Log("[InGameWindow] Need closest data");
             return;
         }
 
         var newLocalPos = ((Vector3)closestPoint.Value.position) - OriginShift.currentMove;
 
-        Logger.Log($"Move spawner to local={newLocalPos}");
+        Logger.Log($"[InGameWindow] Move spawner to local={newLocalPos}");
 
         _spawner!.transform.position = newLocalPos;
 
@@ -243,18 +276,38 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         if (Main.randomEventsManager == null)
             return;
 
+        var bold = new GUIStyle(GUI.skin.label);
+        bold.fontStyle = FontStyle.Bold;
+
+        GUILayout.Label("Global Settings", bold);
+
         GUILayout.Label("More options in mod settings (ctrl+F10)");
 
         var newEnabled = GUILayout.Toggle(Main.settings.RandomSpawningEnabled, "Random spawning enabled");
 
         if (newEnabled != Main.settings.RandomSpawningEnabled)
         {
-            Logger.Log($"Toggled random spawning {Main.settings.RandomSpawningEnabled} => {newEnabled}");
+            Logger.Log($"[InGameWindow] Toggled random spawning {Main.settings.RandomSpawningEnabled} => {newEnabled}");
             Main.settings.RandomSpawningEnabled = newEnabled;
             Main.settings.Save(Main.ModEntry);
         }
 
-        if (GUILayout.Button($"Selected: {_selectedType}"))
+        if (Main.settings.RandomSpawningEnabled)
+        {
+            var warningLabel = new GUIStyle(GUI.skin.label);
+            warningLabel.fontSize *= 4;
+
+            GUILayout.Label("Random events are ENABLED - use at your own risk!!!", warningLabel);
+        }
+
+        if (GUILayout.Button("Force Random Spawn"))
+        {
+            ForceNormalSpawnEvent();
+        }
+
+        GUILayout.Label("Custom Spawn Settings", bold);
+
+        if (GUILayout.Button($"Override Type: {_selectedType}"))
             _showDropdown = !_showDropdown;
 
         if (_showDropdown)
@@ -279,89 +332,22 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
             }
         }
 
-        GUILayout.Label("");
-
-        if (GUILayout.Button("Move Spawner To Camera"))
-        {
-            MoveSpawnerToCameraTarget();
-        }
-
-        GUILayout.Label("Move Spawner");
-
-        GUILayout.BeginHorizontal();
-        if (GUILayout.Button("Up"))
-        {
-            MoveSpawnerOffset(new Vector3(0, 0.5f, 0));
-        }
-        if (GUILayout.Button("Down"))
-        {
-            MoveSpawnerOffset(new Vector3(0, -0.5f, 0));
-        }
-        if (GUILayout.Button("Left"))
-        {
-            MoveSpawnerOffset(new Vector3(0.5f, 0, 0));
-        }
-        if (GUILayout.Button("Right"))
-        {
-            MoveSpawnerOffset(new Vector3(-0.5f, 0, 0));
-        }
-        if (GUILayout.Button("Forward"))
-        {
-            MoveSpawnerOffset(new Vector3(0, 0, 0.5f));
-        }
-        if (GUILayout.Button("Back"))
-        {
-            MoveSpawnerOffset(new Vector3(0, 0, -0.5f));
-        }
-        GUILayout.EndHorizontal();
-
-        GUILayout.Label("Rotate Spawner");
-
-        GUILayout.BeginHorizontal();
-        if (GUILayout.Button("Right"))
-        {
-            RotateSpawnerOffset(new Vector3(0, 45f, 0));
-        }
-        if (GUILayout.Button("Left"))
-        {
-            RotateSpawnerOffset(new Vector3(0, -45f, 0));
-        }
-        if (GUILayout.Button("R. Left"))
-        {
-            RotateSpawnerOffset(new Vector3(-45f, 0, 0));
-        }
-        if (GUILayout.Button("R. Right"))
-        {
-            RotateSpawnerOffset(new Vector3(45f, 0, 0));
-        }
-        if (GUILayout.Button("Up"))
-        {
-            RotateSpawnerOffset(new Vector3(0, 0, -45f));
-        }
-        if (GUILayout.Button("Down"))
-        {
-            RotateSpawnerOffset(new Vector3(0, 0, 45f));
-        }
-        GUILayout.EndHorizontal();
-
         DrawTransformControls();
 
-        GUILayout.Label("");
+        if (GUILayout.Button($"<b>Custom Spawner {(_showSpawnerStuff ? "▼" : "▶")}</b>", GUI.skin.label)) _showSpawnerStuff = !_showSpawnerStuff;
+
+        if (_showSpawnerStuff)
+            DrawSpawner();
+
+        GUILayout.Label("More Spawning", bold);
 
         GUILayout.BeginHorizontal();
-        if (GUILayout.Button("Spawn At Spawner"))
+        GUILayout.Label($"{_spawnAheadDistance:F2}m", GUILayout.Width(60));
+        _spawnAheadDistance = GUILayout.HorizontalSlider(_spawnAheadDistance, 5f, 500f);
+        if (GUILayout.Button("Default", GUILayout.Width(60)))
         {
-            SpawnAtSpawner();
+            _spawnAheadDistance = Main.settings.ObstacleSpawnDistance;
         }
-        if (GUILayout.Button("Spawn Normally"))
-        {
-            SpawnNormally();
-        }
-        GUILayout.EndHorizontal();
-
-        GUILayout.BeginHorizontal();
-        _spawnAheadDistance = GUILayout.HorizontalSlider(_spawnAheadDistance, 5f, 100f);
-        GUILayout.Label($"{_spawnHeightFromGroundText}m", GUILayout.Width(70));
         GUILayout.EndHorizontal();
 
         GUILayout.BeginHorizontal();
@@ -375,27 +361,85 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         }
         GUILayout.EndHorizontal();
 
-        if (GUILayout.Button("Spawn Ahead (Default Distance)"))
-        {
-            SpawnAheadAtDefaultDistance();
-        }
+        if (GUILayout.Button($"<b>Override Obstacle {(_showOverrideForm ? "▼" : "▶")}</b>", GUI.skin.label)) _showOverrideForm = !_showOverrideForm;
+
+        if (_showOverrideForm)
+            DrawOverrideForm();
+
+        GUILayout.Label("Controls", bold);
 
         if (GUILayout.Button("Clear All Obstacles"))
         {
             ClearAllObstacles();
         }
-
-        DrawOverrideForm();
-
+        GUILayout.BeginHorizontal();
         if (GUILayout.Button("Rerail Train"))
         {
             RerailTrain();
         }
+        if (GUILayout.Button("Rerail Train (back)"))
+        {
+            RerailTrain(back: true);
+        }
+        GUILayout.EndHorizontal();
     }
 
-    void RerailTrain()
+    void DrawSpawner()
     {
-        Logger.Log("Rerail train");
+        if (GUILayout.Button("Move Spawner To Camera"))
+            MoveSpawnerToCameraTarget();
+
+        GUILayout.Label("Move");
+
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Button("Up"))
+            MoveSpawnerOffset(new Vector3(0, 0.5f, 0));
+
+        if (GUILayout.Button("Down"))
+            MoveSpawnerOffset(new Vector3(0, -0.5f, 0));
+
+        if (GUILayout.Button("Left"))
+            MoveSpawnerOffset(new Vector3(0.5f, 0, 0));
+
+        if (GUILayout.Button("Right"))
+            MoveSpawnerOffset(new Vector3(-0.5f, 0, 0));
+
+        if (GUILayout.Button("Forward"))
+            MoveSpawnerOffset(new Vector3(0, 0, 0.5f));
+
+        if (GUILayout.Button("Back"))
+            MoveSpawnerOffset(new Vector3(0, 0, -0.5f));
+        GUILayout.EndHorizontal();
+
+        GUILayout.Label("Rotate");
+
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Button("Right"))
+            RotateSpawnerOffset(new Vector3(0, 45f, 0));
+
+        if (GUILayout.Button("Left"))
+            RotateSpawnerOffset(new Vector3(0, -45f, 0));
+
+        if (GUILayout.Button("R. Left"))
+            RotateSpawnerOffset(new Vector3(-45f, 0, 0));
+
+        if (GUILayout.Button("R. Right"))
+            RotateSpawnerOffset(new Vector3(45f, 0, 0));
+
+        if (GUILayout.Button("Up"))
+            RotateSpawnerOffset(new Vector3(0, 0, -45f));
+
+        if (GUILayout.Button("Down"))
+            RotateSpawnerOffset(new Vector3(0, 0, 45f));
+        GUILayout.EndHorizontal();
+
+        if (GUILayout.Button("Spawn At Spawner"))
+            SpawnAtSpawner();
+    }
+
+    void RerailTrain(bool back = false)
+    {
+        Logger.Log("[] Rerail train");
 
         if (PlayerManager.Car == null)
             return;
@@ -405,16 +449,6 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         else
             TrainCarHelper.ReverseTrain(PlayerManager.Car);
     }
-
-    private bool _overrideTransform = false;
-    private Vector3? newScale = null;
-    private Vector3? newRotation = null;
-    private string _scaleXText = "1.0";
-    private string _scaleYText = "1.0";
-    private string _scaleZText = "1.0";
-    private string _rotationXText = "1.0";
-    private string _rotationYText = "1.0";
-    private string _rotationZText = "1.0";
 
     void DrawTransformControls()
     {
@@ -494,32 +528,11 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         ObstacleSpawner.OverrideRotation = newRotation;
     }
 
-    private string _minSpawnCountText = "";
-    private string _maxSpawnCountText = "";
-    private string _spawnHeightFromGroundText = "";
-    private string _verticalSpawnGapText = "";
-    private string _horizontalSpawnGapText = "";
-    private string _minScaleText = "";
-    private string _maxScaleText = "";
-    private string _minMassText = "";
-    private string _maxMassText = "";
-    private string _dragText = "";
-    private string _angularDragText = "";
-    private string _dynamicFrictionText = "";
-    private string _staticFrictionText = "";
-    private string _bouncinessText = "";
-    private string _gravityText = "";
-    private string _derailThresholdText = "";
-    private string _explodeThresholdText = "";
-    private string _explodeForceText = "";
-    private string _explodeRadiusText = "";
-    private string _explodeUpwardsText = "";
-
     void HydrateEditor()
     {
         var obstacle = Main.randomEventsManager.OverrideObstacle;
 
-        Logger.Log($"Hydrate editor type={_selectedType}");
+        Logger.Log($"[InGameWindow] Hydrate editor type={_selectedType}");
 
         if (obstacle == null)
             return;
@@ -550,7 +563,7 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
     {
         var isEnabled = Main.randomEventsManager.OverrideObstacle != null;
 
-        var nowEnabled = GUILayout.Toggle(isEnabled, "Override obstacles");
+        var nowEnabled = GUILayout.Toggle(isEnabled, "Override");
 
         if (nowEnabled != isEnabled)
         {
@@ -569,6 +582,8 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
 
         if (obstacle == null)
             return;
+
+        GUILayout.Label($"Selected type: {_selectedType}");
 
         GUILayout.BeginHorizontal();
         GUILayout.Label("Spawn Count Min / Max:");
@@ -626,7 +641,7 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         GUILayout.EndHorizontal();
 
         GUILayout.BeginHorizontal();
-        GUILayout.Label("Mass Min / Max (4000+ for train crash):");
+        GUILayout.Label("Mass Min / Max:");
         _minMassText = GUILayout.TextField(_minMassText, GUILayout.Width(100));
         if (float.TryParse(_minMassText, out float minMassResult))
         {
@@ -705,7 +720,7 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         // EXPLOSION
 
         GUILayout.BeginHorizontal();
-        GUILayout.Label("Explode Threshold (100,000+, 0 to disable):");
+        GUILayout.Label("Explode Threshold (100,000+, blank to disable):");
         _explodeThresholdText = GUILayout.TextField(_explodeThresholdText, GUILayout.Width(100));
         if (float.TryParse(_explodeThresholdText, out float explodeThresholdNum))
         {

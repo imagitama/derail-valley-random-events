@@ -47,6 +47,7 @@ public static class ObstacleRegistry
             StaticFriction = 0.9f,
             Bounciness = 0,
             RotationOffset = Quaternion.Euler(90, 0, 0), // lay across track
+            TranslateOffset = new Vector3(10f, 0, 0),
             Gravity = 2
         },
         new Obstacle()
@@ -74,7 +75,7 @@ public static class ObstacleRegistry
         {
             Type = ObstacleType.Cows,
             Biome = Biome.Meadow,
-            MinSpawnCount = 1,
+            MinSpawnCount = 2,
             MaxSpawnCount = 5,
             AssetBundleName = "cow",
             SpawnHeightFromGround = 5f,
@@ -94,7 +95,9 @@ public static class ObstacleRegistry
             ExplodeForce = 25,
             ExplodeRadius = 1,
             ExplodeUpwards = 1,
-            LookAtPlayer = true
+            // other
+            LookAtPlayer = true,
+            ScaredOfHorn = true
         }
     };
 

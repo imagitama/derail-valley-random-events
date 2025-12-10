@@ -1,7 +1,6 @@
 using System;
 using System.Linq;
-using dnlib.DotNet.MD;
-using DV.Localization.Debug;
+using LocoSim.Implementations;
 using UnityEngine;
 using UnityModManagerNet;
 
@@ -14,20 +13,32 @@ public class ObstacleComponent : MonoBehaviour
     private Material? _highlightMaterial;
     private GameObject? _highlightObject;
     public Obstacle obstacle;
-    public Rigidbody rigidbody;
+    public Rigidbody rb;
     public Action OnStrongImpact;
+    private const float _distanceToLookAtPlayer = 25f;
     // exploding
+    private bool _isExplodingEnabled = false;
     private Transform baseStuff;
     private Transform explodingStuff;
+    // smooth movement
+    Quaternion? _targetRot;
+    Vector3? _targetPos;
+    const float _degreesThresholdWhenFinishedTurning = 5f;
+    const float _thresholdWhenFinishedMoving = 0.1f;
+    // scaredness
+    private bool _isCurrentlyScared = false;
+    private const float _distanceToBeScared = 50f;
+    public float _degreesPerSec = 300f;
+    public float _moveSpeed = 5f;
 
     void Start()
     {
         Logger.Log($"Obstacle.Start type={obstacle.Type}");
 
-        rigidbody = GetComponent<Rigidbody>();
+        rb = GetComponent<Rigidbody>();
 
-        if (rigidbody == null)
-            throw new Exception("No rigidbody");
+        if (rb == null)
+            throw new Exception("No rb");
 
         if (obstacle.ExplodeThreshold != null)
             SetupExploding();
@@ -48,19 +59,22 @@ public class ObstacleComponent : MonoBehaviour
             throw new Exception("Need [Explode]");
 
         explodingStuff.gameObject.SetActive(false);
+
+        _isExplodingEnabled = true;
     }
 
     void OnExplode()
     {
-        Logger.Log($"Explode! force={obstacle.ExplodeForce.Value} radius={obstacle.ExplodeRadius.Value} upwards={obstacle.ExplodeUpwards.Value}");
+        Logger.Log($"Obstacle.OnExplode force={obstacle.ExplodeForce!.Value} radius={obstacle.ExplodeRadius!.Value} upwards={obstacle.ExplodeUpwards!.Value}");
 
         baseStuff.gameObject.SetActive(false);
 
-        Destroy(rigidbody);
-
+        Destroy(rb);
         Destroy(GetComponent<Collider>());
 
         explodingStuff.gameObject.SetActive(true);
+
+        // TODO: add collision stuff to each gibblet
 
         var bodies = explodingStuff.GetComponentsInChildren<Rigidbody>();
         foreach (var rb in bodies)
@@ -85,26 +99,109 @@ public class ObstacleComponent : MonoBehaviour
             aimPos = PlayerManager.Car.transform.position;
 
         aimPos.y = transform.position.y;
-        transform.LookAt(aimPos);
+
+        _targetRot = Quaternion.LookRotation((aimPos - transform.position).normalized, Vector3.up);
     }
 
-    private float stillThreshold = 0.1f;
+    void Update()
+    {
+        if (obstacle.ScaredOfHorn)
+            CheckIfShouldBeScared();
+    }
+
+
+    void CheckIfShouldBeScared()
+    {
+        if (PlayerManager.Car == null)
+            return;
+
+        // can only be scared if nearby
+        if (Vector3.Distance(transform.position, PlayerManager.Car.transform.position) > _distanceToBeScared)
+            return;
+
+        var simFlow = PlayerManager.Car.SimController.simFlow;
+
+        // TODO: move to TrainCarHelper
+        if (simFlow.TryGetPort("horn.HORN", out Port port))
+        {
+            var hornValue = port.Value;
+
+            if (hornValue > 0.5)
+            {
+                _isCurrentlyScared = true;
+                OnScaredByHorn();
+            }
+        }
+        else
+        {
+            Logger.Log($"Obstacle: FOUND NO HORN");
+        }
+    }
+
+    void OnScaredByHorn()
+    {
+        var toPlayer = PlayerManager.Car.transform.position - transform.position;
+        toPlayer.y = 0f;
+
+        var runDir = -toPlayer.normalized;
+
+        _targetRot = Quaternion.LookRotation(runDir);
+        _targetPos = transform.position + runDir * 10f;
+
+        Logger.Log($"Obstacle: Scared of horn! rot={_targetRot} pos={_targetPos}");
+    }
+
 
     void FixedUpdate()
     {
-        if (rigidbody == null)
+        if (rb == null)
             return;
 
-        if (obstacle.Gravity != 1)
-        {
-            rigidbody.AddForce(Physics.gravity * (obstacle.Gravity - 1f) * rigidbody.mass);
-        }
+        SmoothlyMoveTowardsTarget();
 
-        if (obstacle.LookAtPlayer)
+        if (obstacle.Gravity != 1)
+            rb.AddForce(Physics.gravity * (obstacle.Gravity - 1f) * rb.mass);
+
+        if (obstacle.LookAtPlayer && _targetRot == null && !_isCurrentlyScared)
         {
-            if (rigidbody.velocity.sqrMagnitude < stillThreshold * stillThreshold)
+            if (GetNeedsToLookAtPlayer())
                 LookAtPlayer();
         }
+    }
+
+    void SmoothlyMoveTowardsTarget()
+    {
+        if (_targetRot.HasValue)
+        {
+            var q = Quaternion.RotateTowards(rb.rotation, _targetRot.Value, _degreesPerSec * Time.fixedDeltaTime);
+
+            // float rotationWeight = 0.7f; // reduces rotation fight
+
+            // var q = Quaternion.Slerp(rb.rotation, _targetRot.Value, rotationWeight * Time.fixedDeltaTime);
+
+            rb.MoveRotation(q);
+
+            if (Quaternion.Angle(rb.rotation, _targetRot.Value) < _degreesThresholdWhenFinishedTurning)
+                _targetRot = null;
+        }
+        else if (_targetPos.HasValue)
+        {
+            var p = Vector3.MoveTowards(rb.position, _targetPos.Value, _moveSpeed * Time.fixedDeltaTime);
+            rb.MovePosition(p);
+
+            if (Vector3.Distance(rb.position, _targetPos.Value) < _thresholdWhenFinishedMoving)
+            {
+                _targetPos = null;
+                _isCurrentlyScared = false;
+
+                Logger.Log($"Obstacle no longer scared");
+            }
+        }
+    }
+
+    bool GetNeedsToLookAtPlayer()
+    {
+        return Vector3.Distance(transform.position, PlayerManager.Car.transform.position) < _distanceToLookAtPlayer;
     }
 
     bool GetMustExplode(float impulse)
@@ -123,11 +220,11 @@ public class ObstacleComponent : MonoBehaviour
         {
             if (impulse >= obstacle.DerailThreshold)
             {
-                Logger.Log($"Obstacle.OnStrongImpact type={obstacle.Type}");
+                Logger.Log($"Obstacle: Strong impact impulse={impulse} threshold={obstacle.DerailThreshold} type={obstacle.Type}");
                 OnStrongImpact.Invoke();
             }
 
-            if (GetMustExplode(impulse))
+            if (_isExplodingEnabled && GetMustExplode(impulse))
             {
                 OnExplode();
             }
@@ -142,10 +239,8 @@ public class ObstacleComponent : MonoBehaviour
 
     public string GetObstacleInfo()
     {
-        if (obstacle == null)
-            throw new Exception("Need an obstacle");
-
         // TODO: better
+        // TODO: add a unique ID to help
         return $"{obstacle.Type}";
     }
 

@@ -28,6 +28,7 @@
 		<Reference Include="net.smkd.vector3d" />
 		<Reference Include="BezierCurves" />
 		<Reference Include="DV.BrakeSystem" />
+		<Reference Include="DV.Simulation" />
 	</ItemGroup>
 
 	<!-- Other Mods -->

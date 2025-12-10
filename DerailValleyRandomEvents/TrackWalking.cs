@@ -68,6 +68,22 @@ public static class TrackWalking
         }
     }
 
+    public static bool GetIsForwardsOnTrack(RailTrack track, Transform trainTransform)
+    {
+        var curve = track.curve;
+
+        float t = curve.GetClosestT(trainTransform.position);
+
+        float dt = 0.001f;
+        Vector3 p1 = curve.GetPointAt(t);
+        Vector3 p2 = curve.GetPointAt(Mathf.Clamp01(t + dt));
+
+        Vector3 trackDir = (p2 - p1).normalized;
+
+        Vector3 forward = trainTransform.forward;
+        return Vector3.Dot(forward, trackDir) > 0f;
+    }
+
     public static float GetClosestT(this BezierCurve curve, Vector3 worldPos)
     {
         float length = curve.length;
@@ -134,15 +150,6 @@ public static class TrackWalking
         Vector3 pos = current.curve.GetPointAt((float)t);
 
         return (current, pos);
-    }
-
-    static string NumToStr(float v)
-    {
-        return ((int)(v * 100) / 100f).ToString(); ;
-    }
-    static string NumToStr(double v)
-    {
-        return ((int)(v * 100) / 100f).ToString(); ;
     }
 
     public static bool IsTravellingForward(

@@ -10,132 +10,6 @@ using DV.OriginShift;
 
 namespace DerailValleyRandomEvents;
 
-public enum ObstacleType
-{
-    Rockslide,
-    Cows,
-    FallenTrees,
-    FunRamp
-    // RiverFlood
-}
-
-public class Obstacle
-{
-    // basics
-    public ObstacleType Type;
-    public Biome? Biome;
-    public string AssetBundleName;
-    public string? PrefabName;
-    public bool? InPool;
-    // spawning
-    public int MinSpawnCount = 1;
-    public int? MaxSpawnCount = 1;
-    public float SpawnHeightFromGround = 1f;
-    public float? VerticalSpawnGap; // distance between spawns to avoid physics exploding
-    public float? HorizontalSpawnGap; // distance between spawns to avoid physics exploding
-    // rigidbody
-    public float MinScale = 1f;
-    public float MaxScale = 1f;
-    public float MinMass = 1000f; // at least 1000 for trains to "crash"
-    public float MaxMass = 1000f;
-    public float Drag = 0f; // how much air/liquid holds it back (no effect on fall speed)
-    public float AngularDrag = 0f; // how much it spins in the air (???)
-    // physicmaterial
-    public float DynamicFriction = 1.0f;
-    public float StaticFriction = 1.0f;
-    public float Bounciness = 0f;
-    // physics
-    public float Gravity = 1f; // multiplier to increase fall speed
-    public Quaternion? RotationOffset;
-    public float DerailThreshold = 150000; // newton-seconds (light bump in DE2 is 130,000~)
-    // exploding!
-    public float? ExplodeThreshold; // newton-seconds (light bump in DE2 is 130,000~)
-    public float? ExplodeForce = 10;
-    public float? ExplodeRadius = 5;
-    public float? ExplodeUpwards = 5;
-    public bool LookAtPlayer = false;
-    // public string SoundName;
-    // public float SoundRadius;
-
-    public Obstacle Clone()
-    {
-        return new Obstacle()
-        {
-            // basics
-            Type = Type,
-            Biome = Biome,
-            AssetBundleName = AssetBundleName,
-            PrefabName = PrefabName,
-            InPool = InPool,
-            // spawning
-            MinSpawnCount = MinSpawnCount,
-            MaxSpawnCount = MaxSpawnCount,
-            SpawnHeightFromGround = SpawnHeightFromGround,
-            VerticalSpawnGap = VerticalSpawnGap,
-            HorizontalSpawnGap = HorizontalSpawnGap,
-            // rigidbody
-            MinScale = MinScale,
-            MaxScale = MaxScale,
-            MinMass = MinMass,
-            MaxMass = MaxMass,
-            Drag = Drag,
-            AngularDrag = AngularDrag,
-            // physics
-            DynamicFriction = DynamicFriction,
-            StaticFriction = StaticFriction,
-            Bounciness = Bounciness,
-            RotationOffset = RotationOffset,
-            // more physics
-            Gravity = Gravity,
-            DerailThreshold = DerailThreshold,
-            // exploding
-            ExplodeThreshold = ExplodeThreshold,
-            ExplodeForce = ExplodeForce,
-            ExplodeRadius = ExplodeRadius,
-            ExplodeUpwards = ExplodeUpwards,
-            // other
-            LookAtPlayer = LookAtPlayer
-        };
-    }
-
-    public override string ToString()
-    {
-        return "Obstacle(" +
-$"Type={Type}," +
-$"Biome={Biome}," +
-$"MinSpawnCount={MinSpawnCount}," +
-$"MaxSpawnCount={MaxSpawnCount}," +
-$"SpawnHeightFromGround={SpawnHeightFromGround}," +
-$"VerticalSpawnGap={VerticalSpawnGap}," +
-$"HorizontalSpawnGap={HorizontalSpawnGap}," +
-$"MinScale={MinScale}," +
-$"MaxScale={MaxScale}," +
-$"MinMass={MinMass}," +
-$"MaxMass={MaxMass}," +
-$"Drag={Drag}," +
-$"AngularDrag={AngularDrag}," +
-$"DynamicFriction={DynamicFriction}," +
-$"StaticFriction={StaticFriction}," +
-$"Bounciness={Bounciness}," +
-$"RotationOffset={RotationOffset}," +
-$"Gravity={Gravity}," +
-$"DerailThreshold={DerailThreshold})";
-    }
-}
-
-public class SpawnEvent
-{
-    public ObstacleType? obstacleType;
-    public float distance;
-    // optional
-    public bool ignoreNearbyCheck = false;
-    public bool flipDirection = false;
-    // populate later
-    public Vector3? intendedPos;
-    public bool? isForward;
-    public RailTrack? intendedTrack;
-}
-
 public class RandomEventsManager
 {
     private UnityModManager.ModEntry.ModLogger Logger => Main.ModEntry.Logger;
@@ -165,7 +39,7 @@ public class RandomEventsManager
         CreateUpdateDriver();
     }
 
-    private void CreateUpdateDriver()
+    public void CreateUpdateDriver()
     {
         Logger.Log("[RandomEventsManager] Create UpdateDriver");
 
@@ -215,13 +89,13 @@ public class RandomEventsManager
         }
     }
 
-    private void Cleanup()
+    public void Cleanup()
     {
         Logger.Log("[RandomEventsManager] Cleanup");
         // TODO: this
     }
 
-    private bool GetIsInOrOnAnyTrainCar()
+    public bool GetIsInOrOnAnyTrainCar()
     {
         return PlayerManager.Car != null;
     }
@@ -231,7 +105,7 @@ public class RandomEventsManager
         if (!GetIsInOrOnAnyTrainCar())
             return;
 
-        var (track, obstacleLocalPos) = GetObstaclePositionFromCarLocal();
+        var (track, obstacleLocalPos) = GetObstaclePositionFromCarLocal(Main.settings.ObstacleSpawnDistance);
 
         if (_debugSphere == null)
         {
@@ -255,7 +129,7 @@ public class RandomEventsManager
         _debugSphere.transform.position = newSpherePos;
     }
 
-    private bool GetShouldEmitRandomEvent()
+    public bool GetShouldEmitRandomEvent()
     {
         if (!Main.settings.RandomSpawningEnabled)
             return false;
@@ -283,13 +157,13 @@ public class RandomEventsManager
         }
     }
 
-    private EventCategory GetRandomCategory()
+    public EventCategory GetRandomCategory()
     {
         var values = (EventCategory[])Enum.GetValues(typeof(EventCategory));
         return values[_rng.Next(values.Length)];
     }
 
-    private ObstacleType GetRandomObstacleType()
+    public ObstacleType GetRandomObstacleType()
     {
         var poolable = ObstacleRegistry.Obstacles
             .Where(x => x.InPool != false)
@@ -313,7 +187,11 @@ public class RandomEventsManager
 
         Logger.Log($"[RandomEventsManager] Emit obstacle event at position={localPos} type={incomingObstacle.Type} prefab={prefab} count={spawnCount} ({obstacle.MinSpawnCount} -> {obstacle.MaxSpawnCount})");
 
+
         var obstaclePosInSky = new Vector3(localPos.Value.x, localPos.Value.y + obstacle.SpawnHeightFromGround, localPos.Value.z);
+
+        if (obstacle.TranslateOffset != null)
+            obstaclePosInSky += (Vector3)obstacle.TranslateOffset;
 
         var objects = new List<GameObject>();
 
@@ -336,6 +214,7 @@ public class RandomEventsManager
                 var gap = i * obstacle.VerticalSpawnGap.Value;
                 spawnPos.y += gap;
             }
+            // TODO: combine with vertical?
             else if (obstacle.HorizontalSpawnGap != null)
             {
                 var track = spawnEvent.intendedTrack;
@@ -349,13 +228,13 @@ public class RandomEventsManager
                 spawnPos.z += gap;
             }
 
-            spawnPos = AddJitter(spawnPos, 1f);
+            spawnPos = GetJitteredPos(spawnPos, 1f); // TODO: customise max jitter
 
             obj.transform.position = spawnPos;
         }
     }
 
-    Vector3 AddJitter(Vector3 pos, float maxJitterAmount)
+    Vector3 GetJitteredPos(Vector3 pos, float maxJitterAmount)
     {
         float x = UnityEngine.Random.Range(-maxJitterAmount, maxJitterAmount);
         float z = UnityEngine.Random.Range(-maxJitterAmount, maxJitterAmount);
@@ -381,7 +260,10 @@ public class RandomEventsManager
     {
         Logger.Log($"[RandomEventsManager] Emit obstacle event ahead type={spawnEvent.obstacleType}");
 
-        var (track, obstacleLocalPos) = GetObstaclePositionFromCarLocal(spawnEvent.distance, spawnEvent.flipDirection);
+        if (spawnEvent.distance == null)
+            spawnEvent.distance = Main.settings.ObstacleSpawnDistance;
+
+        var (track, obstacleLocalPos) = GetObstaclePositionFromCarLocal(spawnEvent.distance.Value, spawnEvent.flipDirection);
 
         spawnEvent.intendedTrack = track;
         spawnEvent.intendedPos = obstacleLocalPos;
@@ -403,7 +285,7 @@ public class RandomEventsManager
         if (obstacle == null)
             throw new Exception($"Could not find obstacle from type '{obstacleType}'");
 
-        Logger.Log($"[RandomEventsManager] Obstacle of type {obstacleType}: {obstacle}");
+        Logger.Log($"[RandomEventsManager] Using obstacle:\n{obstacle}");
 
         currentBiome = Biome.Rock;
 
@@ -418,7 +300,7 @@ public class RandomEventsManager
         return true;
     }
 
-    private Biome GetCurrentBiome()
+    public Biome GetCurrentBiome()
     {
         BiomeProvider instance = SingletonBehaviour<BiomeProvider>.Instance;
         var currentBiome = instance.CurrentBiome;
@@ -445,15 +327,12 @@ public class RandomEventsManager
         Logger.Log($"[RandomEventsManager] Found asset objects: {string.Join(",", all.Select(x => x.name))}");
 
         if (obstacle.PrefabName != null)
-        {
-            var match = all.First(x => x.name == obstacle.PrefabName) ?? throw new Exception($"Prefab '{obstacle.PrefabName}' not found in assetbundle");
-            return match;
-        }
+            return all.First(x => x.name == obstacle.PrefabName) ?? throw new Exception($"Prefab '{obstacle.PrefabName}' not found in AssetBundle {bundle}");
 
         return all[_rng.Next(all.Length)];
     }
 
-    private AssetBundle LoadBundle(string pathInsideAssetBundles)
+    public AssetBundle LoadBundle(string pathInsideAssetBundles)
     {
         var bundlePath = Path.Combine(Main.ModEntry.Path, "Dependencies/AssetBundles", pathInsideAssetBundles);
 
@@ -465,12 +344,12 @@ public class RandomEventsManager
         return AssetBundle.LoadFromFile(bundlePath);
     }
 
-    private AssetBundle LoadObstacleBundle(Obstacle obstacle)
+    public AssetBundle LoadObstacleBundle(Obstacle obstacle)
     {
         return LoadBundle(obstacle.AssetBundleName);
     }
 
-    private (RailTrack, Vector3) GetObstaclePositionFromCarLocal(float? overrideDistance = null, bool? flipDirection = false)
+    public (RailTrack, Vector3) GetObstaclePositionFromCarLocal(float distance, bool? flipDirection = false)
     {
         Logger.Log($"[RandomEventsManager] Choosing obstacle position...");
 
@@ -488,14 +367,15 @@ public class RandomEventsManager
 
         Logger.Log($"[RandomEventsManager] Starting at track '{currentTrack.name}' at position {startLocalPos}");
 
-        var distance = overrideDistance != null ? overrideDistance.Value : Main.settings.ObstacleSpawnDistance;
+        var isTrainStopped = PlayerManager.Car.GetAbsSpeed() < 1f;
+        var isForwardOnTrack = TrackWalking.GetIsForwardsOnTrack(currentTrack, car.transform);
 
         var (resultTrack, resultLocalPos) =
-            PlayerManager.Car.GetAbsSpeed() == 0 ?
-                TrackWalking.GetAheadTrack(currentTrack, startLocalPos, flipDirection == true ? -currentPoint.Value.forward : currentPoint.Value.forward, distance) :
+            isTrainStopped ?
+                TrackWalking.GetAheadTrack(currentTrack, startLocalPos, flipDirection == true ? !isForwardOnTrack : isForwardOnTrack, distance) :
                 TrackWalking.GetAheadTrack(currentTrack, startLocalPos, flipDirection == true ? -car.rb.velocity : car.rb.velocity, distance);
 
-        Logger.Log($"[RandomEventsManager] Chosen position {resultLocalPos} on track '{resultTrack.name}'");
+        Logger.Log($"[RandomEventsManager] Chosen position {resultLocalPos} on track '{resultTrack.name}' isTrainStopped={isTrainStopped} flip={flipDirection} isForwardsOnTrack={isForwardOnTrack}");
 
         return (resultTrack, resultLocalPos);
     }
@@ -504,7 +384,7 @@ public class RandomEventsManager
     {
         Logger.Log($"[RandomEventsManager] Reset");
 
-        // trigger re-create
+        // triggers re-creation
         GameObject.Destroy(_debugSphere);
     }
 
@@ -517,10 +397,11 @@ public class RandomEventsManager
         foreach (var kv in _obstacleBundles)
         {
             var assetBundle = kv.Value;
-
             Logger.Log($"[RandomEventsManager] Unload '{assetBundle.name}'");
-
             assetBundle.Unload(true);
         }
+
+        foreach (var unsub in TrainCarHelper.HornUnsubscribes)
+            unsub();
     }
 }

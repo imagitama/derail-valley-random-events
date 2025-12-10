@@ -5,7 +5,7 @@ namespace DerailValleyRandomEvents;
 public class Settings : UnityModManager.ModSettings, IDrawable
 {
     [Draw(Label = "Enable random spawning")]
-    public bool RandomSpawningEnabled = true;
+    public bool RandomSpawningEnabled = false; // FALSE only while still WIP
     [Draw(Label = "How often to check if we need to emit (in seconds)")]
     public float CheckIntervalSeconds = 1.0f;      // how often to evaluate
     [Draw(Label = "Minimum delay between events")]
