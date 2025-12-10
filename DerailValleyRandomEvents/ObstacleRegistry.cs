@@ -11,7 +11,7 @@ public static class ObstacleRegistry
         new Obstacle()
         {
             Type = ObstacleType.Rockslide,
-            Biome = Biome.Rock,
+            Biomes = [Biome.Rock],
             MinSpawnCount = 5,
             MaxSpawnCount = 10,
             AssetBundleName = "rocks",
@@ -31,7 +31,7 @@ public static class ObstacleRegistry
         new Obstacle()
         {
             Type = ObstacleType.FallenTrees,
-            Biome = Biome.Forest,
+            Biomes = [Biome.Forest],
             MinSpawnCount = 1,
             MaxSpawnCount = 1,
             AssetBundleName = "trees",
@@ -46,7 +46,7 @@ public static class ObstacleRegistry
             DynamicFriction = 0.9f,
             StaticFriction = 0.9f,
             Bounciness = 0,
-            RotationOffset = Quaternion.Euler(90, 0, 0), // lay across track
+            RotationOffset = Quaternion.Euler(90f, 0, 90f), // lay across track
             TranslateOffset = new Vector3(10f, 0, 0),
             Gravity = 2
         },
@@ -74,7 +74,7 @@ public static class ObstacleRegistry
         new Obstacle()
         {
             Type = ObstacleType.Cows,
-            Biome = Biome.Meadow,
+            Biomes = [Biome.Meadow, Biome.Field],
             MinSpawnCount = 2,
             MaxSpawnCount = 5,
             AssetBundleName = "cow",

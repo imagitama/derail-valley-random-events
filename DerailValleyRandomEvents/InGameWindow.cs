@@ -8,9 +8,11 @@ namespace DerailValleyRandomEvents;
 public class InGameWindow : MonoBehaviour, IModToolbarPanel
 {
     private UnityModManager.ModEntry.ModLogger Logger => Main.ModEntry.Logger;
-    private ObstacleType? _selectedType = ObstacleType.Rockslide;
+    private string? _lastMessage;
+    private ObstacleType? _selectedType;
     private bool _showDropdown = false;
     private float _spawnAheadDistance = 25f;
+    private bool _ignoreBiome = false;
     // spawner
     private GameObject? _spawner;
     private bool _overrideTransform = false;
@@ -74,21 +76,44 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
 
     void ForceNormalSpawnEvent()
     {
-        Logger.Log("[InGameWindow] Spawn normally");
+        Logger.Log("[InGameWindow] Spawn normal event");
 
-        Main.randomEventsManager.EmitObstacleEventAhead(new SpawnEvent()
+        Main.randomEventsManager.EmitObstacleEventAhead(new EventRequest());
+    }
+
+    void ForceCustomSpawnEvent()
+    {
+        Logger.Log("[InGameWindow] Spawn custom event");
+
+        var result = Main.randomEventsManager.EmitObstacleEventAhead(new EventRequest()
         {
-            obstacleType = _selectedType
+            obstacleType = _selectedType,
+            ignoreBiome = _ignoreBiome,
+            ignoreNearbyCheck = true
         });
+
+        UpdateLastMessage(result);
+    }
+
+    void UpdateLastMessage(SpawnedEvent? result)
+    {
+        if (result == null)
+        {
+            _lastMessage = "Spawn failed";
+            return;
+        }
+
+        _lastMessage = $"Spawned {result.count}x {result.obstacle.Type} {_spawnAheadDistance}m away";
     }
 
     void SpawnAhead()
     {
         Logger.Log($"[InGameWindow] Spawn ahead type={_selectedType} distance={_spawnAheadDistance}");
 
-        Main.randomEventsManager.EmitObstacleEventAhead(new SpawnEvent()
+        Main.randomEventsManager.EmitObstacleEventAhead(new EventRequest()
         {
             obstacleType = _selectedType,
+            ignoreBiome = _ignoreBiome,
             distance = _spawnAheadDistance,
             ignoreNearbyCheck = true
         });
@@ -98,23 +123,13 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
     {
         Logger.Log($"[InGameWindow] Spawn behind type={_selectedType} distance={_spawnAheadDistance}");
 
-        Main.randomEventsManager.EmitObstacleEventAhead(new SpawnEvent()
+        Main.randomEventsManager.EmitObstacleEventAhead(new EventRequest()
         {
             obstacleType = _selectedType,
+            ignoreBiome = _ignoreBiome,
             distance = _spawnAheadDistance,
             ignoreNearbyCheck = true,
             flipDirection = true
-        });
-    }
-
-    void SpawnAheadAtDefaultDistance()
-    {
-        Logger.Log($"[InGameWindow] Force obstacle ahead");
-
-        Main.randomEventsManager.EmitObstacleEventAhead(new SpawnEvent()
-        {
-            obstacleType = _selectedType,
-            ignoreNearbyCheck = true
         });
     }
 
@@ -170,7 +185,7 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
 
         var rotation = _spawner!.transform.rotation;
 
-        Main.randomEventsManager.EmitObstacleEventAtPos(new SpawnEvent() { intendedPos = localPos }, obstacle, prefab, rotation);
+        Main.randomEventsManager.EmitObstacleEvent(new EventRequest() { intendedPos = localPos }, obstacle, prefab, rotation);
     }
 
     void ClearAllObstacles()
@@ -276,6 +291,9 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         if (Main.randomEventsManager == null)
             return;
 
+        if (_lastMessage != null)
+            GUILayout.Label($"Recently: {_lastMessage}");
+
         var bold = new GUIStyle(GUI.skin.label);
         bold.fontStyle = FontStyle.Bold;
 
@@ -300,12 +318,14 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
             GUILayout.Label("Random events are ENABLED - use at your own risk!!!", warningLabel);
         }
 
-        if (GUILayout.Button("Force Random Spawn"))
+        if (GUILayout.Button("Force Normal Spawn"))
         {
             ForceNormalSpawnEvent();
         }
 
         GUILayout.Label("Custom Spawn Settings", bold);
+
+        _ignoreBiome = GUILayout.Toggle(_ignoreBiome, "Ignore biome when randomly spawning");
 
         if (GUILayout.Button($"Override Type: {_selectedType}"))
             _showDropdown = !_showDropdown;
@@ -314,12 +334,13 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         {
             var names = System.Enum.GetNames(typeof(ObstacleType));
 
+            GUILayout.BeginHorizontal();
             for (int i = 0; i < names.Length; i++)
             {
                 if (GUILayout.Button(names[i]))
                 {
                     if (_selectedType == (ObstacleType)i)
-                        _selectedType = null;
+                        ClearSelectedType();
                     else
                     {
                         _selectedType = (ObstacleType)i;
@@ -330,9 +351,17 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
                     HydrateEditor();
                 }
             }
+            if (GUILayout.Button("CLEAR"))
+                ClearSelectedType();
+            GUILayout.EndHorizontal();
         }
 
         DrawTransformControls();
+
+        if (GUILayout.Button("Force Custom Spawn"))
+        {
+            ForceCustomSpawnEvent();
+        }
 
         if (GUILayout.Button($"<b>Custom Spawner {(_showSpawnerStuff ? "▼" : "▶")}</b>", GUI.skin.label)) _showSpawnerStuff = !_showSpawnerStuff;
 
@@ -382,6 +411,12 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
             RerailTrain(back: true);
         }
         GUILayout.EndHorizontal();
+    }
+
+    void ClearSelectedType()
+    {
+        _selectedType = null;
+        Main.randomEventsManager.OverrideObstacle = null;
     }
 
     void DrawSpawner()

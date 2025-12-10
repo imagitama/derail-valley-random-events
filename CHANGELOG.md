@@ -1,3 +1,9 @@
+# 0.0.3
+
+- added cow!
+- chooses obstacle based on biome
+- better UI
+
 # 0.0.2
 
 - rewrote track pathfinding to be better

@@ -35,8 +35,16 @@ public static class ObstacleSpawner
     {
         Main.ModEntry.Logger.Log($"[ObstacleSpawner] Clear obstacle '{obstacleComp}'");
 
-        GameObject.Destroy(obstacleComp.gameObject);
         _spawnedObstacles.Remove(obstacleComp);
+        GameObject.Destroy(obstacleComp.gameObject);
+    }
+
+    public static void CleanupObstacle(ObstacleComponent obstacleComp)
+    {
+        Main.ModEntry.Logger.Log($"[ObstacleSpawner] Cleanup obstacle '{obstacleComp}'");
+
+        _spawnedObstacles.Remove(obstacleComp);
+        GameObject.Destroy(obstacleComp.gameObject);
     }
 
     public static List<ObstacleComponent> GetAllObstacles()
@@ -105,9 +113,6 @@ public static class ObstacleSpawner
         if (overrideRotation != null)
             rotation = (Quaternion)overrideRotation;
 
-        if (obstacle.RotationOffset != null)
-            rotation *= (Quaternion)obstacle.RotationOffset;
-
         // keep in the world as it loads
         // TODO: cleanup to avoid memory issues
         var parent = WorldMover.OriginShiftParent;
@@ -135,6 +140,12 @@ public static class ObstacleSpawner
         newObj.transform.localScale = OverrideScale ?? new Vector3(scale, scale, scale);
 
         AddMissingCollider(newObj, obstacle);
+
+        if (Main.settings.ShowDebugStuff)
+        {
+            var debugSphere = RandomEventsManager.CreateDebugSphere(10f);
+            debugSphere.transform.SetParent(newObj.transform);
+        }
 
         _spawnedObstacles.Add(obstacleComp);
 

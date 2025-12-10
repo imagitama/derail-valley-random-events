@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using DV.WorldTools;
 using UnityEngine;
 
@@ -15,7 +17,7 @@ public class Obstacle
 {
     // basics
     public ObstacleType Type;
-    public Biome? Biome;
+    public List<Biome> Biomes = [];
     public string AssetBundleName;
     public string? PrefabName;
     public bool? InPool;
@@ -56,7 +58,7 @@ public class Obstacle
         {
             // basics
             Type = Type,
-            Biome = Biome,
+            Biomes = Biomes.ToList(),
             AssetBundleName = AssetBundleName,
             PrefabName = PrefabName,
             InPool = InPool,
@@ -97,7 +99,7 @@ public class Obstacle
     {
         return "Obstacle(" +
 $"Type={Type}," +
-$"Biome={Biome}," +
+$"Biomes={string.Join(",", Biomes)}," +
 $"MinSpawnCount={MinSpawnCount}," +
 $"MaxSpawnCount={MaxSpawnCount}," +
 $"SpawnHeightFromGround={SpawnHeightFromGround}," +
@@ -126,15 +128,24 @@ $"ScaredOfHorn={ScaredOfHorn}" +
     }
 }
 
-public class SpawnEvent
+public class EventRequest
 {
+    public Biome? biome; // if null use whatever player is in (or anything if ignoring)
     public ObstacleType? obstacleType; // if null decided based on biome/random
-    public float? distance;
+    public float? distance; // if null use settings
     // optional
     public bool ignoreNearbyCheck = false;
     public bool flipDirection = false;
+    public bool ignoreBiome = false;
     // populate later
     public Vector3? intendedPos;
     public bool? isForward;
     public RailTrack? intendedTrack;
+}
+
+public class SpawnedEvent
+{
+    public Obstacle obstacle;
+    public float distance;
+    public int count;
 }
