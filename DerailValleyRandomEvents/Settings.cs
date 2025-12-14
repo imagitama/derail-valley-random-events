@@ -4,22 +4,27 @@ namespace DerailValleyRandomEvents;
 
 public class Settings : UnityModManager.ModSettings, IDrawable
 {
-    [Draw(Label = "Enable random spawning")]
+    [Draw(Label = "Enable random events")]
     public bool RandomSpawningEnabled = false; // FALSE only while still WIP
-    [Draw(Label = "How often to check if we need to emit (in seconds)")]
-    public float CheckIntervalSeconds = 1.0f;      // how often to evaluate
-    [Draw(Label = "Minimum delay between events")]
-    public float MinIntervalSeconds = 120.0f;       // min time between events
-    [Draw(Label = "Maximum delay between events")]
-    public float MaxIntervalSeconds = 360.0f;       // max time between events
-    [Draw(Label = "Initial delay after loading a save game")]
-    public float InitialMinDelay = 30.0f;          // delay after game start
-    [Draw(Label = "Percentage chance of an event occuring (eg. 0.5 for 50%)")]
-    public float RandomChance = 0.25f;             // 25% chance per check
-    [Draw(Label = "How far infront of your train to spawn an obstacle (in meters)")]
-    public float ObstacleSpawnDistance = 500f;     // 500m from your train
+    [Draw(Label = "How often to check if we need to emit (seconds, default 1)")]
+    public float CheckIntervalSeconds = 1.0f;
+
+    [Draw(Label = "Percent chance of an event occuring every check (percent, default 0.25)")]
+    public float RandomChance = 0.25f;
+    [Draw(Label = "Min time between events (seconds, default 1800 or 30 min)")]
+    public float MinIntervalSeconds = 1800.0f;
+    [Draw(Label = "Max time between events (guaranteed after this) (seconds, default 3600 or 1 hour)")]
+    public float MaxIntervalSeconds = 3600.0f;
+    [Draw(Label = "Minimum wait after loading into the game (seconds, default 100)")]
+    public float InitialDelay = 100.0f;
+    [Draw(Label = "How far infront of your train to spawn an obstacle (meters, default 500)")]
+    public float ObstacleSpawnDistance = 500f;
     [Draw(Label = "If to render debugging stuff")]
     public bool ShowDebugStuff = false;
+    [Draw(Label = "Chance of getting a warning notification before an event (percent, 0 to disable, default 0.75)")]
+    public float WarningChance = 0.75f;
+    [Draw(Label = "Volume of warning message sound effect (0 to disable, default 1)")]
+    public float WarningSoundEffectVolume = 1f;
 
     public override void Save(UnityModManager.ModEntry modEntry)
     {

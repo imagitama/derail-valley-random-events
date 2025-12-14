@@ -6,7 +6,6 @@ using DV.WorldTools;
 using DV.Utils;
 using UnityEngine;
 using UnityModManagerNet;
-using DV.OriginShift;
 
 namespace DerailValleyRandomEvents;
 
@@ -19,8 +18,9 @@ public class RandomEventsManager
     private Dictionary<ObstacleType, AssetBundle> _obstacleBundles = [];
     private GameObject? _updateDriver;
     private GameObject? _debugSphere;
-    private float _nextCleanupTime;
-    public Obstacle? OverrideObstacle;
+    private float? _nextCleanupTime;
+    public Obstacle? OverrideObstacle = null;
+    public bool PreventAllObstacleDerailment = false;
 
     public enum EventCategory
     {
@@ -33,7 +33,7 @@ public class RandomEventsManager
 
         var now = Time.time;
         _nextCheckTime = now + Main.settings.CheckIntervalSeconds;
-        _nextEligibleEventTime = now + Main.settings.InitialMinDelay;
+        _nextEligibleEventTime = now + Main.settings.InitialDelay;
         _nextCleanupTime = Time.time + 30f;
 
         CreateUpdateDriver();
@@ -55,7 +55,7 @@ public class RandomEventsManager
         {
             var now = Time.time;
 
-            if (now >= _nextCleanupTime)
+            if (_nextCleanupTime != null && now >= _nextCleanupTime)
             {
                 Cleanup();
                 _nextCleanupTime = now + 30f;
@@ -91,11 +91,14 @@ public class RandomEventsManager
 
     public void Cleanup()
     {
-        Logger.Log("[RandomEventsManager] Cleanup");
 
         var playerPos = PlayerManager.PlayerTransform.transform.position;
 
         var obstacles = ObstacleSpawner.GetAllObstacles().ToList();
+
+        Logger.Log($"[RandomEventsManager] Cleanup ({obstacles.Count})");
+
+        var cleanupCount = 0;
 
         foreach (var obstacle in obstacles)
         {
@@ -105,8 +108,11 @@ public class RandomEventsManager
             {
                 Logger.Log($"[RandomEventsManager] Cleaning up '{obstacle}' (distance {distance} > {maxDistance})");
                 ObstacleSpawner.CleanupObstacle(obstacle);
+                cleanupCount++;
             }
         }
+
+        Logger.Log($"[RandomEventsManager] Cleaned up {cleanupCount} obstacles");
     }
 
     public bool GetIsInOrOnAnyTrainCar()
@@ -119,7 +125,7 @@ public class RandomEventsManager
         if (!GetIsInOrOnAnyTrainCar())
             return;
 
-        var (track, obstacleLocalPos) = GetObstaclePositionFromCarLocal(Main.settings.ObstacleSpawnDistance);
+        var (track, obstacleLocalPos, rotation) = GetObstaclePositionFromCarLocal(Main.settings.ObstacleSpawnDistance);
 
         if (_debugSphere == null)
         {
@@ -217,10 +223,10 @@ public class RandomEventsManager
         return poolable[_rng.Next(poolable.Count)];
     }
 
-    public Obstacle GetRandomObstacleForType(ObstacleType type)
+    public Obstacle GetRandomObstacleForType(ObstacleType type, bool forceEverythingInPool = false)
     {
         var poolable = ObstacleRegistry.Obstacles
-            .Where(x => x.InPool != false && x.Type == type)
+            .Where(x => x.Type == type && (forceEverythingInPool || x.InPool != false))
             .ToList();
 
         return poolable[_rng.Next(poolable.Count)];
@@ -228,6 +234,10 @@ public class RandomEventsManager
 
     public SpawnedEvent EmitObstacleEvent(EventRequest eventRequest, Obstacle incomingObstacle, GameObject prefab, Quaternion? overrideRotation = null)
     {
+        bool showWarning = Main.settings.WarningChance == 0 ? false : UnityEngine.Random.value < Main.settings.WarningChance;
+        if (showWarning)
+            NotificationHelper.ShowNotificationViaRadio($"An obstacle has been reported ahead! Be careful!");
+
         // avoid any reference issues too
         var obstacle = OverrideObstacle != null ? OverrideObstacle.Clone() : incomingObstacle.Clone();
 
@@ -238,8 +248,9 @@ public class RandomEventsManager
         if (localPos == null)
             throw new Exception("Cannot emit obstacle event without a position");
 
-        Logger.Log($"[RandomEventsManager] Emit obstacle event at position={localPos} type={incomingObstacle.Type} prefab={prefab} count={spawnCount} ({obstacle.MinSpawnCount} -> {obstacle.MaxSpawnCount})");
+        var rotation = overrideRotation != null ? overrideRotation.Value : eventRequest.intendedRot != null ? (Quaternion)eventRequest.intendedRot : Quaternion.identity;
 
+        Logger.Log($"[RandomEventsManager] Emit obstacle event at position={localPos} rotation={rotation} type={obstacle.Type} prefab={prefab} count={spawnCount} ({obstacle.MinSpawnCount} -> {obstacle.MaxSpawnCount}) warn={showWarning}");
 
         var obstaclePosInSky = new Vector3(localPos.Value.x, localPos.Value.y + obstacle.SpawnHeightFromGround, localPos.Value.z);
 
@@ -261,9 +272,16 @@ public class RandomEventsManager
         {
             Logger.Log($"[RandomEventsManager] Spawn obstacle #{i}");
 
-            var obj = ObstacleSpawner.Create(prefab, obstacle, overrideRotation);
+            if (PreventAllObstacleDerailment)
+                obstacle.DerailThreshold = 0;
 
+            var obj = ObstacleSpawner.Create(prefab, obstacle);
             objects.Add(obj);
+
+            obj.transform.rotation = rotation;
+
+            if (ObstacleSpawner.RotationMultiplier != null)
+                obj.transform.rotation *= Quaternion.Euler(ObstacleSpawner.RotationMultiplier.Value);
 
             var jitterDistance = 0.25f;
 
@@ -290,12 +308,13 @@ public class RandomEventsManager
                 spawnPos.z += gap;
             }
 
-            spawnPos = GetJitteredPos(spawnPos, 1f); // TODO: customise max jitter
+            if (obstacle.JitterAmount > 0)
+                spawnPos = GetJitteredPos(spawnPos, obstacle.JitterAmount);
 
             obj.transform.position = spawnPos;
 
             if (obstacle.RotationOffset != null)
-                obj.transform.rotation = PlayerManager.Car.transform.rotation * (Quaternion)obstacle.RotationOffset;
+                obj.transform.rotation = obj.transform.rotation * obstacle.RotationOffset.Value;
         }
 
         return new SpawnedEvent()
@@ -330,15 +349,16 @@ public class RandomEventsManager
 
     public SpawnedEvent? EmitObstacleEventAhead(EventRequest eventRequest)
     {
-        Logger.Log($"[RandomEventsManager] Emit obstacle event ahead type={eventRequest.obstacleType}");
-
         if (eventRequest.distance == null)
             eventRequest.distance = Main.settings.ObstacleSpawnDistance;
 
-        var (track, obstacleLocalPos) = GetObstaclePositionFromCarLocal(eventRequest.distance.Value, eventRequest.flipDirection);
+        Logger.Log($"[RandomEventsManager] Emit obstacle event ahead type={eventRequest.obstacleType} distance={eventRequest.distance}");
+
+        var (track, obstacleLocalPos, rotationAlongTrack) = GetObstaclePositionFromCarLocal(eventRequest.distance.Value, eventRequest.flipDirection);
 
         eventRequest.intendedTrack = track;
         eventRequest.intendedPos = obstacleLocalPos;
+        eventRequest.intendedRot = rotationAlongTrack;
 
         if (GetIsObstacleNearby(obstacleLocalPos) && eventRequest.ignoreNearbyCheck != true)
         {
@@ -362,7 +382,7 @@ public class RandomEventsManager
         Obstacle? obstacle;
 
         if (eventRequest.obstacleType != null)
-            obstacle = GetRandomObstacleForType(eventRequest.obstacleType.Value);
+            obstacle = GetRandomObstacleForType(eventRequest.obstacleType.Value, eventRequest.forceEverythingInPool);
         else
             obstacle = biomeToUse != null ? GetRandomObstacleForBiome(biomeToUse.Value) : GetRandomObstacle();
 
@@ -430,7 +450,7 @@ public class RandomEventsManager
         return LoadBundle(obstacle.AssetBundleName);
     }
 
-    public (RailTrack, Vector3) GetObstaclePositionFromCarLocal(float distance, bool? flipDirection = false)
+    public (RailTrack, Vector3, Quaternion) GetObstaclePositionFromCarLocal(float distance, bool? flipDirection = false)
     {
         Logger.Log($"[RandomEventsManager] Choosing obstacle position...");
 
@@ -451,14 +471,14 @@ public class RandomEventsManager
         var isTrainStopped = PlayerManager.Car.GetAbsSpeed() < 1f;
         var isForwardOnTrack = TrackWalking.GetIsForwardsOnTrack(currentTrack, car.transform);
 
-        var (resultTrack, resultLocalPos) =
+        var (resultTrack, resultLocalPos, resultRotationAlongTrack) =
             isTrainStopped ?
                 TrackWalking.GetAheadTrack(currentTrack, startLocalPos, flipDirection == true ? !isForwardOnTrack : isForwardOnTrack, distance) :
                 TrackWalking.GetAheadTrack(currentTrack, startLocalPos, flipDirection == true ? -car.rb.velocity : car.rb.velocity, distance);
 
         Logger.Log($"[RandomEventsManager] Chosen position {resultLocalPos} on track '{resultTrack.name}' isTrainStopped={isTrainStopped} flip={flipDirection} isForwardsOnTrack={isForwardOnTrack}");
 
-        return (resultTrack, resultLocalPos);
+        return (resultTrack, resultLocalPos, resultRotationAlongTrack);
     }
 
     public void Reset()

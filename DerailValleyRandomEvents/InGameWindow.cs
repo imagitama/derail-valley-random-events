@@ -45,6 +45,8 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
     private string _explodeForceText = "";
     private string _explodeRadiusText = "";
     private string _explodeUpwardsText = "";
+    private string _jitterAmountText = "";
+    // settings
     private bool _showOverrideForm = false;
     private bool _showSpawnerStuff = false;
 
@@ -78,18 +80,25 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
     {
         Logger.Log("[InGameWindow] Spawn normal event");
 
+        if (PlayerManager.Car == null)
+            return;
+
         Main.randomEventsManager.EmitObstacleEventAhead(new EventRequest());
     }
 
-    void ForceCustomSpawnEvent()
+    void ForceCustomSpawnEvent(ObstacleType? overrideType = null)
     {
         Logger.Log("[InGameWindow] Spawn custom event");
 
+        if (PlayerManager.Car == null)
+            return;
+
         var result = Main.randomEventsManager.EmitObstacleEventAhead(new EventRequest()
         {
-            obstacleType = _selectedType,
+            obstacleType = overrideType ?? _selectedType,
             ignoreBiome = _ignoreBiome,
-            ignoreNearbyCheck = true
+            ignoreNearbyCheck = true,
+            forceEverythingInPool = true
         });
 
         UpdateLastMessage(result);
@@ -110,18 +119,8 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
     {
         Logger.Log($"[InGameWindow] Spawn ahead type={_selectedType} distance={_spawnAheadDistance}");
 
-        Main.randomEventsManager.EmitObstacleEventAhead(new EventRequest()
-        {
-            obstacleType = _selectedType,
-            ignoreBiome = _ignoreBiome,
-            distance = _spawnAheadDistance,
-            ignoreNearbyCheck = true
-        });
-    }
-
-    void SpawnBehind()
-    {
-        Logger.Log($"[InGameWindow] Spawn behind type={_selectedType} distance={_spawnAheadDistance}");
+        if (PlayerManager.Car == null)
+            return;
 
         Main.randomEventsManager.EmitObstacleEventAhead(new EventRequest()
         {
@@ -129,7 +128,25 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
             ignoreBiome = _ignoreBiome,
             distance = _spawnAheadDistance,
             ignoreNearbyCheck = true,
-            flipDirection = true
+            forceEverythingInPool = true
+        });
+    }
+
+    void SpawnBehind()
+    {
+        Logger.Log($"[InGameWindow] Spawn behind type={_selectedType} distance={_spawnAheadDistance}");
+
+        if (PlayerManager.Car == null)
+            return;
+
+        Main.randomEventsManager.EmitObstacleEventAhead(new EventRequest()
+        {
+            obstacleType = _selectedType,
+            ignoreBiome = _ignoreBiome,
+            distance = _spawnAheadDistance,
+            ignoreNearbyCheck = true,
+            flipDirection = true,
+            forceEverythingInPool = true
         });
     }
 
@@ -285,6 +302,8 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         // TODO: face correctly
     }
 
+    private bool _showCustomSpawnSettings = false;
+
     public void Window(Rect rect)
     {
         // handle unload
@@ -318,12 +337,67 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
             GUILayout.Label("Random events are ENABLED - use at your own risk!!!", warningLabel);
         }
 
+        if (GUILayout.Button($"<b>Custom Spawn Settings {(_showCustomSpawnSettings ? "▼" : "▶")}</b>", GUI.skin.label)) _showCustomSpawnSettings = !_showCustomSpawnSettings;
+        if (_showCustomSpawnSettings)
+            DrawCustomSpawnSettings();
+
+        if (GUILayout.Button($"<b>Custom Spawner {(_showSpawnerStuff ? "▼" : "▶")}</b>", GUI.skin.label)) _showSpawnerStuff = !_showSpawnerStuff;
+        if (_showSpawnerStuff)
+            DrawSpawner();
+
+        if (GUILayout.Button($"<b>Override Obstacle {(_showOverrideForm ? "▼" : "▶")}</b>", GUI.skin.label)) _showOverrideForm = !_showOverrideForm;
+        if (_showOverrideForm)
+            DrawOverrideForm();
+
+        GUILayout.Label("Controls", bold);
+
+        if (GUILayout.Button("Clear All Obstacles"))
+        {
+            ClearAllObstacles();
+        }
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Button("Rerail Train"))
+        {
+            RerailTrain();
+        }
+        if (GUILayout.Button("Rerail Train (back)"))
+        {
+            RerailTrain(back: true);
+        }
+        GUILayout.EndHorizontal();
+
+        Main.randomEventsManager.PreventAllObstacleDerailment = GUILayout.Toggle(Main.randomEventsManager.PreventAllObstacleDerailment, "Prevent obstacles from ever derailing");
+    }
+
+    void DrawMoreSpawning()
+    {
+        GUILayout.BeginHorizontal();
+        GUILayout.Label($"{_spawnAheadDistance:F2}m", GUILayout.Width(60));
+        _spawnAheadDistance = GUILayout.HorizontalSlider(_spawnAheadDistance, 5f, 500f);
+        if (GUILayout.Button("Default", GUILayout.Width(60)))
+        {
+            _spawnAheadDistance = Main.settings.ObstacleSpawnDistance;
+        }
+        GUILayout.EndHorizontal();
+
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Button("Spawn Ahead"))
+        {
+            SpawnAhead();
+        }
+        if (GUILayout.Button("Spawn Behind"))
+        {
+            SpawnBehind();
+        }
+        GUILayout.EndHorizontal();
+    }
+
+    void DrawCustomSpawnSettings()
+    {
         if (GUILayout.Button("Force Normal Spawn"))
         {
             ForceNormalSpawnEvent();
         }
-
-        GUILayout.Label("Custom Spawn Settings", bold);
 
         _ignoreBiome = GUILayout.Toggle(_ignoreBiome, "Ignore biome when randomly spawning");
 
@@ -363,55 +437,12 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
             ForceCustomSpawnEvent();
         }
 
-        if (GUILayout.Button($"<b>Custom Spawner {(_showSpawnerStuff ? "▼" : "▶")}</b>", GUI.skin.label)) _showSpawnerStuff = !_showSpawnerStuff;
+        GUILayout.Label("More Spawning:");
 
-        if (_showSpawnerStuff)
-            DrawSpawner();
-
-        GUILayout.Label("More Spawning", bold);
-
-        GUILayout.BeginHorizontal();
-        GUILayout.Label($"{_spawnAheadDistance:F2}m", GUILayout.Width(60));
-        _spawnAheadDistance = GUILayout.HorizontalSlider(_spawnAheadDistance, 5f, 500f);
-        if (GUILayout.Button("Default", GUILayout.Width(60)))
-        {
-            _spawnAheadDistance = Main.settings.ObstacleSpawnDistance;
-        }
-        GUILayout.EndHorizontal();
-
-        GUILayout.BeginHorizontal();
-        if (GUILayout.Button("Spawn Ahead"))
-        {
-            SpawnAhead();
-        }
-        if (GUILayout.Button("Spawn Behind"))
-        {
-            SpawnBehind();
-        }
-        GUILayout.EndHorizontal();
-
-        if (GUILayout.Button($"<b>Override Obstacle {(_showOverrideForm ? "▼" : "▶")}</b>", GUI.skin.label)) _showOverrideForm = !_showOverrideForm;
-
-        if (_showOverrideForm)
-            DrawOverrideForm();
-
-        GUILayout.Label("Controls", bold);
-
-        if (GUILayout.Button("Clear All Obstacles"))
-        {
-            ClearAllObstacles();
-        }
-        GUILayout.BeginHorizontal();
-        if (GUILayout.Button("Rerail Train"))
-        {
-            RerailTrain();
-        }
-        if (GUILayout.Button("Rerail Train (back)"))
-        {
-            RerailTrain(back: true);
-        }
-        GUILayout.EndHorizontal();
+        DrawMoreSpawning();
     }
+
+    private bool _preventAllObstacleDerailment = true;
 
     void ClearSelectedType()
     {
@@ -487,7 +518,7 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
 
     void DrawTransformControls()
     {
-        var nowEnabled = GUILayout.Toggle(_overrideTransform, "Override transform");
+        var nowEnabled = GUILayout.Toggle(_overrideTransform, "Scale or rotate");
 
         if (nowEnabled != _overrideTransform)
         {
@@ -501,8 +532,8 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
                 newScale = null;
                 newRotation = null;
 
-                ObstacleSpawner.OverrideScale = null;
-                ObstacleSpawner.OverrideRotation = null;
+                ObstacleSpawner.ScaleMultiplier = null;
+                ObstacleSpawner.RotationMultiplier = null;
             }
 
             _overrideTransform = nowEnabled;
@@ -513,12 +544,12 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
 
         var scale = (Vector3)newScale;
 
-        GUILayout.Label("Scale X:");
+        GUILayout.Label("Scale XYZ (multiplier)");
+        GUILayout.BeginHorizontal();
         _scaleXText = GUILayout.TextField(_scaleXText, GUILayout.Width(100));
-        GUILayout.Label("Scale Y:");
         _scaleYText = GUILayout.TextField(_scaleYText, GUILayout.Width(100));
-        GUILayout.Label("Scale Z:");
         _scaleZText = GUILayout.TextField(_scaleZText, GUILayout.Width(100));
+        GUILayout.EndHorizontal();
 
         if (float.TryParse(_scaleXText, out float scaleX))
         {
@@ -537,12 +568,12 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
 
         var rotation = (Vector3)newRotation;
 
-        GUILayout.Label("Rotation X:");
+        GUILayout.Label("Rotation XYZ (degrees):");
+        GUILayout.BeginHorizontal();
         _rotationXText = GUILayout.TextField(_rotationXText, GUILayout.Width(100));
-        GUILayout.Label("Rotation Y:");
         _rotationYText = GUILayout.TextField(_rotationYText, GUILayout.Width(100));
-        GUILayout.Label("Rotation Z:");
         _rotationZText = GUILayout.TextField(_rotationZText, GUILayout.Width(100));
+        GUILayout.EndHorizontal();
 
         if (float.TryParse(_rotationXText, out float rotationX))
         {
@@ -559,8 +590,8 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
 
         newRotation = rotation;
 
-        ObstacleSpawner.OverrideScale = newScale;
-        ObstacleSpawner.OverrideRotation = newRotation;
+        ObstacleSpawner.ScaleMultiplier = newScale;
+        ObstacleSpawner.RotationMultiplier = newRotation;
     }
 
     void HydrateEditor()
@@ -592,6 +623,7 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         _explodeForceText = obstacle.ExplodeForce.ToString();
         _explodeRadiusText = obstacle.ExplodeRadius.ToString();
         _explodeUpwardsText = obstacle.ExplodeUpwards.ToString();
+        _jitterAmountText = obstacle.JitterAmount.ToString();
     }
 
     void DrawOverrideForm()
@@ -613,9 +645,8 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
             HydrateEditor();
         }
 
-        var obstacle = Main.randomEventsManager.OverrideObstacle;
-
-        if (obstacle == null)
+        var obstacleRef = Main.randomEventsManager.OverrideObstacle;
+        if (obstacleRef == null)
             return;
 
         GUILayout.Label($"Selected type: {_selectedType}");
@@ -625,12 +656,12 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         _minSpawnCountText = GUILayout.TextField(_minSpawnCountText, GUILayout.Width(100));
         if (int.TryParse(_minSpawnCountText, out int minSpawnCountResult))
         {
-            obstacle.MinSpawnCount = minSpawnCountResult;
+            obstacleRef.MinSpawnCount = minSpawnCountResult;
         }
         _maxSpawnCountText = GUILayout.TextField(_maxSpawnCountText, GUILayout.Width(100));
         if (int.TryParse(_maxSpawnCountText, out int maxSpawnCountResult))
         {
-            obstacle.MaxSpawnCount = maxSpawnCountResult;
+            obstacleRef.MaxSpawnCount = maxSpawnCountResult;
         }
         GUILayout.EndHorizontal();
 
@@ -639,7 +670,7 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         _spawnHeightFromGroundText = GUILayout.TextField(_spawnHeightFromGroundText, GUILayout.Width(100));
         if (float.TryParse(_spawnHeightFromGroundText, out float spawnHeightFromGroundResult))
         {
-            obstacle.SpawnHeightFromGround = spawnHeightFromGroundResult;
+            obstacleRef.SpawnHeightFromGround = spawnHeightFromGroundResult;
         }
         GUILayout.EndHorizontal();
 
@@ -648,7 +679,7 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         _verticalSpawnGapText = GUILayout.TextField(_verticalSpawnGapText, GUILayout.Width(100));
         if (float.TryParse(_verticalSpawnGapText, out float verticalSpawnGapNum))
         {
-            obstacle.VerticalSpawnGap = verticalSpawnGapNum;
+            obstacleRef.VerticalSpawnGap = verticalSpawnGapNum;
         }
         GUILayout.EndHorizontal();
         GUILayout.BeginHorizontal();
@@ -657,7 +688,7 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         _horizontalSpawnGapText = GUILayout.TextField(_horizontalSpawnGapText, GUILayout.Width(100));
         if (float.TryParse(_horizontalSpawnGapText, out float horizontalSpawnGapNum))
         {
-            obstacle.HorizontalSpawnGap = horizontalSpawnGapNum;
+            obstacleRef.HorizontalSpawnGap = horizontalSpawnGapNum;
         }
         GUILayout.EndHorizontal();
 
@@ -666,12 +697,12 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         _minScaleText = GUILayout.TextField(_minScaleText, GUILayout.Width(100));
         if (float.TryParse(_minScaleText, out float minScaleResult))
         {
-            obstacle.MinScale = minScaleResult;
+            obstacleRef.MinScale = minScaleResult;
         }
         _maxScaleText = GUILayout.TextField(_maxScaleText, GUILayout.Width(100));
         if (float.TryParse(_maxScaleText, out float maxScaleResult))
         {
-            obstacle.MaxScale = maxScaleResult;
+            obstacleRef.MaxScale = maxScaleResult;
         }
         GUILayout.EndHorizontal();
 
@@ -680,12 +711,12 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         _minMassText = GUILayout.TextField(_minMassText, GUILayout.Width(100));
         if (float.TryParse(_minMassText, out float minMassResult))
         {
-            obstacle.MinMass = minMassResult;
+            obstacleRef.MinMass = minMassResult;
         }
         _maxMassText = GUILayout.TextField(_maxMassText, GUILayout.Width(100));
         if (float.TryParse(_maxMassText, out float maxMassResult))
         {
-            obstacle.MaxMass = maxMassResult;
+            obstacleRef.MaxMass = maxMassResult;
         }
         GUILayout.EndHorizontal();
 
@@ -694,7 +725,7 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         _dragText = GUILayout.TextField(_dragText, GUILayout.Width(100));
         if (float.TryParse(_dragText, out float dragResult))
         {
-            obstacle.Drag = dragResult;
+            obstacleRef.Drag = dragResult;
         }
         GUILayout.EndHorizontal();
 
@@ -703,7 +734,7 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         _angularDragText = GUILayout.TextField(_angularDragText, GUILayout.Width(100));
         if (float.TryParse(_angularDragText, out float angularDragResult))
         {
-            obstacle.AngularDrag = angularDragResult;
+            obstacleRef.AngularDrag = angularDragResult;
         }
         GUILayout.EndHorizontal();
 
@@ -712,7 +743,7 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         _dynamicFrictionText = GUILayout.TextField(_dynamicFrictionText, GUILayout.Width(100));
         if (float.TryParse(_dynamicFrictionText, out float dynamicFrictionResult))
         {
-            obstacle.DynamicFriction = dynamicFrictionResult;
+            obstacleRef.DynamicFriction = dynamicFrictionResult;
         }
         GUILayout.EndHorizontal();
 
@@ -721,7 +752,7 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         _staticFrictionText = GUILayout.TextField(_staticFrictionText, GUILayout.Width(100));
         if (float.TryParse(_staticFrictionText, out float staticFrictionResult))
         {
-            obstacle.StaticFriction = staticFrictionResult;
+            obstacleRef.StaticFriction = staticFrictionResult;
         }
         GUILayout.EndHorizontal();
 
@@ -730,7 +761,7 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         _bouncinessText = GUILayout.TextField(_bouncinessText, GUILayout.Width(100));
         if (float.TryParse(_bouncinessText, out float bouncinessResult))
         {
-            obstacle.Bounciness = bouncinessResult;
+            obstacleRef.Bounciness = bouncinessResult;
         }
         GUILayout.EndHorizontal();
 
@@ -739,27 +770,27 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         _gravityText = GUILayout.TextField(_gravityText, GUILayout.Width(100));
         if (float.TryParse(_gravityText, out float gravityResult))
         {
-            obstacle.Gravity = gravityResult;
+            obstacleRef.Gravity = gravityResult;
         }
         GUILayout.EndHorizontal();
 
         GUILayout.BeginHorizontal();
-        GUILayout.Label("Derail Threshold (100,000+):");
+        GUILayout.Label("Derail Threshold (0 to disable, 100k+ good):");
         _derailThresholdText = GUILayout.TextField(_derailThresholdText, GUILayout.Width(100));
         if (float.TryParse(_derailThresholdText, out float derailThresholdResult))
         {
-            obstacle.DerailThreshold = derailThresholdResult;
+            obstacleRef.DerailThreshold = derailThresholdResult;
         }
         GUILayout.EndHorizontal();
 
         // EXPLOSION
 
         GUILayout.BeginHorizontal();
-        GUILayout.Label("Explode Threshold (100,000+, blank to disable):");
+        GUILayout.Label("Explode Threshold (0 to disable):");
         _explodeThresholdText = GUILayout.TextField(_explodeThresholdText, GUILayout.Width(100));
         if (float.TryParse(_explodeThresholdText, out float explodeThresholdNum))
         {
-            obstacle.ExplodeThreshold = explodeThresholdNum == 0 ? null : explodeThresholdNum;
+            obstacleRef.ExplodeThreshold = explodeThresholdNum;
         }
         GUILayout.EndHorizontal();
 
@@ -768,7 +799,7 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         _explodeForceText = GUILayout.TextField(_explodeForceText, GUILayout.Width(100));
         if (float.TryParse(_explodeForceText, out float explodeForceNum))
         {
-            obstacle.ExplodeForce = explodeForceNum == 0 ? null : explodeForceNum;
+            obstacleRef.ExplodeForce = explodeForceNum == 0 ? null : explodeForceNum;
         }
         GUILayout.EndHorizontal();
 
@@ -777,7 +808,7 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         _explodeRadiusText = GUILayout.TextField(_explodeRadiusText, GUILayout.Width(100));
         if (float.TryParse(_explodeRadiusText, out float explodeRadiusNum))
         {
-            obstacle.ExplodeRadius = explodeRadiusNum == 0 ? null : explodeRadiusNum;
+            obstacleRef.ExplodeRadius = explodeRadiusNum == 0 ? null : explodeRadiusNum;
         }
         GUILayout.EndHorizontal();
 
@@ -786,7 +817,16 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         _explodeUpwardsText = GUILayout.TextField(_explodeUpwardsText, GUILayout.Width(100));
         if (float.TryParse(_explodeUpwardsText, out float explodeUpwardsNum))
         {
-            obstacle.ExplodeUpwards = explodeUpwardsNum == 0 ? null : explodeUpwardsNum;
+            obstacleRef.ExplodeUpwards = explodeUpwardsNum == 0 ? null : explodeUpwardsNum;
+        }
+        GUILayout.EndHorizontal();
+
+        GUILayout.BeginHorizontal();
+        GUILayout.Label("Jitter (meters):");
+        _jitterAmountText = GUILayout.TextField(_jitterAmountText, GUILayout.Width(100));
+        if (float.TryParse(_jitterAmountText, out float jitterAmountNum))
+        {
+            obstacleRef.JitterAmount = jitterAmountNum;
         }
         GUILayout.EndHorizontal();
     }

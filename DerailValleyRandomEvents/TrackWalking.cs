@@ -105,7 +105,7 @@ public static class TrackWalking
         return bestT;
     }
 
-    public static (RailTrack, Vector3) GetAheadTrack(this RailTrack current, Vector3 startWorldPos, Vector3 velocity, double aheadDistance)
+    public static (RailTrack, Vector3, Quaternion) GetAheadTrack(this RailTrack current, Vector3 startWorldPos, Vector3 velocity, double aheadDistance)
     {
         var closestT = GetClosestT(current.curve, startWorldPos);
         var currentCarDistanceOnTrack = current.curve.length * closestT;
@@ -113,14 +113,14 @@ public static class TrackWalking
         return current.GetAheadTrackWithDirection(currentCarDistanceOnTrack, isForwardOnTrack, aheadDistance);
     }
 
-    public static (RailTrack, Vector3) GetAheadTrack(this RailTrack current, Vector3 startWorldPos, bool isForwardOnTrack, double aheadDistance)
+    public static (RailTrack, Vector3, Quaternion) GetAheadTrack(this RailTrack current, Vector3 startWorldPos, bool isForwardOnTrack, double aheadDistance)
     {
         var closestT = GetClosestT(current.curve, startWorldPos);
         var currentCarDistanceOnTrack = current.curve.length * closestT;
         return current.GetAheadTrackWithDirection(currentCarDistanceOnTrack, isForwardOnTrack, aheadDistance);
     }
 
-    public static (RailTrack, Vector3) GetAheadTrackWithDirection(this RailTrack current, double currentDistance, bool direction, double aheadDistance)
+    public static (RailTrack, Vector3, Quaternion) GetAheadTrackWithDirection(this RailTrack current, double currentDistance, bool direction, double aheadDistance)
     {
         aheadDistance -= direction ? current.curve.length - currentDistance : currentDistance;
 
@@ -149,7 +149,10 @@ public static class TrackWalking
         double t = span / current.curve.length;
         Vector3 pos = current.curve.GetPointAt((float)t);
 
-        return (current, pos);
+        Vector3 forward = current.curve.GetTangentAt((float)t).normalized;
+        Quaternion rot = Quaternion.LookRotation(forward, Vector3.up);
+
+        return (current, pos, rot);
     }
 
     public static bool IsTravellingForward(

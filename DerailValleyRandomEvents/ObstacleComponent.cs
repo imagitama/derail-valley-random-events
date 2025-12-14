@@ -14,7 +14,7 @@ public class ObstacleComponent : MonoBehaviour
     private GameObject? _highlightObject;
     public Obstacle obstacle;
     public Rigidbody rb;
-    public Action OnStrongImpact;
+    public Action<TrainCar> OnStrongImpact;
     private const float _distanceToLookAtPlayer = 25f;
     // exploding
     private bool _isExplodingEnabled = false;
@@ -27,7 +27,7 @@ public class ObstacleComponent : MonoBehaviour
     const float _thresholdWhenFinishedMoving = 0.1f;
     // scaredness
     private bool _isCurrentlyScared = false;
-    private const float _distanceToBeScared = 50f;
+    private const float _distanceToBeScared = 75f;
     public float _degreesPerSec = 300f;
     public float _moveSpeed = 5f;
 
@@ -40,7 +40,7 @@ public class ObstacleComponent : MonoBehaviour
         if (rb == null)
             throw new Exception("No rb");
 
-        if (obstacle.ExplodeThreshold != null)
+        if (obstacle.ExplodeThreshold != null && obstacle.ExplodeThreshold > 0)
             SetupExploding();
     }
 
@@ -201,12 +201,12 @@ public class ObstacleComponent : MonoBehaviour
 
     bool GetNeedsToLookAtPlayer()
     {
-        return Vector3.Distance(transform.position, PlayerManager.Car.transform.position) < _distanceToLookAtPlayer;
+        return Vector3.Distance(transform.position, PlayerManager.PlayerTransform.transform.position) < _distanceToLookAtPlayer;
     }
 
     bool GetMustExplode(float impulse)
     {
-        if (obstacle.ExplodeThreshold == null || obstacle.ExplodeForce == null || obstacle.ExplodeRadius == null || obstacle.ExplodeUpwards == null)
+        if (obstacle.ExplodeThreshold == 0 || obstacle.ExplodeThreshold == null || obstacle.ExplodeForce == null || obstacle.ExplodeRadius == null || obstacle.ExplodeUpwards == null)
             return false;
 
         return impulse >= obstacle.ExplodeThreshold;
@@ -216,12 +216,17 @@ public class ObstacleComponent : MonoBehaviour
     {
         var impulse = collision.impulse.magnitude;
 
-        if (GetIsLocoColliding(collision))
+        var car = GetCarFromCollision(collision);
+
+        if (car != null)
         {
-            if (impulse >= obstacle.DerailThreshold)
+            Logger.Log($"Obstacle: Impact car={car} impulse={impulse} threshold={obstacle.DerailThreshold} type={obstacle.Type}");
+
+            if (obstacle.DerailThreshold > 0 && impulse >= obstacle.DerailThreshold)
             {
-                Logger.Log($"Obstacle: Strong impact impulse={impulse} threshold={obstacle.DerailThreshold} type={obstacle.Type}");
-                OnStrongImpact.Invoke();
+                // Logger.Log($"Obstacle: Strong impact car={car} impulse={impulse} threshold={obstacle.DerailThreshold} type={obstacle.Type}");
+                Logger.Log($"Obstacle: Strong impact!!!");
+                OnStrongImpact.Invoke(car);
             }
 
             if (_isExplodingEnabled && GetMustExplode(impulse))
@@ -231,10 +236,21 @@ public class ObstacleComponent : MonoBehaviour
         }
     }
 
-    bool GetIsLocoColliding(Collision collision)
+    TrainCar? GetCarFromCollision(Collision collision)
     {
-        // TODO: cache/do this way better
-        return PlayerManager.Car != null && collision.collider == PlayerManager.Car.carColliders.transform.GetComponentsInChildren<Collider>().ToList().Contains(collision.collider);
+        var current = collision.collider.transform;
+
+        while (current != null)
+        {
+            var car = current.GetComponent<TrainCar>();
+
+            if (car != null)
+                return car;
+
+            current = current.parent;
+        }
+
+        return null;
     }
 
     public string GetObstacleInfo()

@@ -1,3 +1,10 @@
+# 0.0.4
+
+- you can hear reports of upcoming obstacles (75% chance)
+- better UI
+- _any_ car will now derail from hitting obstacles
+- improve spawning alignment/scaling
+
 # 0.0.3
 
 - added cow!

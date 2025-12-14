@@ -46,7 +46,7 @@ public static class ObstacleRegistry
             DynamicFriction = 0.9f,
             StaticFriction = 0.9f,
             Bounciness = 0,
-            RotationOffset = Quaternion.Euler(90f, 0, 90f), // lay across track
+            RotationOffset = Quaternion.Euler(90f, 90f, 0), // lay across track
             TranslateOffset = new Vector3(10f, 0, 0),
             Gravity = 2
         },
@@ -69,7 +69,10 @@ public static class ObstacleRegistry
             DynamicFriction = 0,
             StaticFriction = 0,
             Bounciness = 0,
-            DerailThreshold = 50000 // very low for launch!
+            JitterAmount = 0,
+            ScaleOffset = new Vector3(1.5f, 1f, 1.5f),
+            RotationOffset = Quaternion.Euler(0, -90f, 0),
+            DerailThreshold = 5000 // very low for launch!
         },
         new Obstacle()
         {
@@ -85,7 +88,7 @@ public static class ObstacleRegistry
             MinMass = 1000f,
             MaxMass = 2000f,
             Drag = 0,
-            AngularDrag = 1f,
+            AngularDrag = 0.1f, // tip over better
             DynamicFriction = 0.9f,
             StaticFriction = 0.9f,
             Bounciness = 0,
@@ -97,7 +100,8 @@ public static class ObstacleRegistry
             ExplodeUpwards = 1,
             // other
             LookAtPlayer = true,
-            ScaredOfHorn = true
+            ScaredOfHorn = true,
+            CenterOfMass = new Vector3(0f, 1f, 0f) // tip over better
         }
     };
 

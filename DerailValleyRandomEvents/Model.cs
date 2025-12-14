@@ -40,17 +40,20 @@ public class Obstacle
     public float Bounciness = 0f;
     // physics
     public float Gravity = 1f; // multiplier to increase fall speed
+    public Vector3? ScaleOffset;
     public Quaternion? RotationOffset;
     public Vector3? TranslateOffset;
-    public float DerailThreshold = 150000; // newton-seconds (light bump in DE2 is 130,000~)
+    public float DerailThreshold = 150000; // newton-seconds (0 to disable, light bump in DE2 is 130,000~)
     // exploding!
-    public float? ExplodeThreshold; // newton-seconds (light bump in DE2 is 130,000~)
+    public float ExplodeThreshold; // newton-seconds (0 to disable, light bump in DE2 is 130,000~)
     public float? ExplodeForce = 10;
     public float? ExplodeRadius = 5;
     public float? ExplodeUpwards = 5;
     // other
     public bool LookAtPlayer = false;
     public bool ScaredOfHorn = false;
+    public float JitterAmount = 1f;
+    public Vector3? CenterOfMass; // default center of collider
 
     public Obstacle Clone()
     {
@@ -79,6 +82,7 @@ public class Obstacle
             DynamicFriction = DynamicFriction,
             StaticFriction = StaticFriction,
             Bounciness = Bounciness,
+            ScaleOffset = ScaleOffset,
             RotationOffset = RotationOffset,
             TranslateOffset = TranslateOffset,
             // more physics
@@ -91,7 +95,9 @@ public class Obstacle
             ExplodeUpwards = ExplodeUpwards,
             // other
             LookAtPlayer = LookAtPlayer,
-            ScaredOfHorn = ScaredOfHorn
+            ScaredOfHorn = ScaredOfHorn,
+            JitterAmount = JitterAmount,
+            CenterOfMass = CenterOfMass
         };
     }
 
@@ -123,7 +129,9 @@ $"ExplodeForce={ExplodeForce}," +
 $"ExplodeRadius={ExplodeRadius}," +
 $"ExplodeUpwards={ExplodeUpwards}," +
 $"LookAtPlayer={LookAtPlayer}," +
-$"ScaredOfHorn={ScaredOfHorn}" +
+$"ScaredOfHorn={ScaredOfHorn}," +
+$"JitterAmount={JitterAmount}," +
+$"CenterOfMass={CenterOfMass}" +
 ")";
     }
 }
@@ -137,8 +145,10 @@ public class EventRequest
     public bool ignoreNearbyCheck = false;
     public bool flipDirection = false;
     public bool ignoreBiome = false;
+    public bool forceEverythingInPool = false;
     // populate later
     public Vector3? intendedPos;
+    public Quaternion? intendedRot;
     public bool? isForward;
     public RailTrack? intendedTrack;
 }
@@ -148,4 +158,6 @@ public class SpawnedEvent
     public Obstacle obstacle;
     public float distance;
     public int count;
+    public Vector3 position;
+    public Quaternion rotation;
 }

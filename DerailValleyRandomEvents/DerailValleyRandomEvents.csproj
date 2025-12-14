@@ -29,6 +29,8 @@
 		<Reference Include="BezierCurves" />
 		<Reference Include="DV.BrakeSystem" />
 		<Reference Include="DV.Simulation" />
+		<Reference Include="DV.UI" />
+		<Reference Include="DV.UIFramework" />
 	</ItemGroup>
 
 	<!-- Other Mods -->
@@ -46,6 +48,9 @@
 		<Reference Include="UnityEngine.IMGUIModule" />
 		<Reference Include="UnityEngine.TextRenderingModule" />
 		<Reference Include="UnityEngine.ParticleSystemModule" />
+		<Reference Include="UnityEngine.AudioModule" />
+		<Reference Include="UnityEngine.UnityWebRequestModule" />
+		<Reference Include="UnityEngine.UnityWebRequestAudioModule" />
 	</ItemGroup>
 
 	<!-- Mod Loader -->

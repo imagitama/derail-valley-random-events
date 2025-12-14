@@ -8,6 +8,7 @@ namespace DerailValleyRandomEvents;
 public static class TrainCarHelper
 {
     private static UnityModManager.ModEntry.ModLogger Logger => Main.ModEntry.Logger;
+
     public static void RerailTrain(TrainCar trainCar, bool isReverse = false)
     {
         var (closestTrack, point) = RailTrack.GetClosest(trainCar.transform.position);
@@ -49,6 +50,7 @@ public static class TrainCarHelper
 
         trainCar.SetTrack(closestTrack, rerailPos, forward);
 
+        // TODO: do it in callback
         trainCar.brakeSystem.SetHandbrakePosition(0);
     }
 

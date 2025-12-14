@@ -11,8 +11,8 @@ public static class ObstacleSpawner
     private static UnityModManager.ModEntry.ModLogger Logger => Main.ModEntry.Logger;
     private static List<ObstacleComponent> _spawnedObstacles = [];
     private static Dictionary<ObstacleType, PhysicMaterial> _physicMaterialsForObstacles = [];
-    public static Vector3? OverrideScale = null;
-    public static Vector3? OverrideRotation = null;
+    public static Vector3? ScaleMultiplier = null;
+    public static Vector3? RotationMultiplier = null;
 
     private static PhysicMaterial GetPhysicMaterialForObstacle(Obstacle obstacle)
     {
@@ -103,25 +103,17 @@ public static class ObstacleSpawner
         }
     }
 
-    public static GameObject Create(GameObject prefab, Obstacle obstacle, Quaternion? overrideRotation = null)
+    public static GameObject Create(GameObject prefab, Obstacle obstacle)
     {
-        var rotation = Quaternion.identity;
-
-        if (OverrideRotation != null)
-            rotation = Quaternion.Euler((Vector3)OverrideRotation);
-
-        if (overrideRotation != null)
-            rotation = (Quaternion)overrideRotation;
-
         // keep in the world as it loads
         // TODO: cleanup to avoid memory issues
         var parent = WorldMover.OriginShiftParent;
 
-        var newObj = UnityEngine.Object.Instantiate(prefab, Vector3.zero, rotation, parent);
+        var newObj = UnityEngine.Object.Instantiate(prefab, Vector3.zero, Quaternion.identity, parent);
 
         var obstacleComp = newObj.AddComponent<ObstacleComponent>();
         obstacleComp.obstacle = obstacle;
-        obstacleComp.OnStrongImpact = () => OnStrongImpact(obstacle);
+        obstacleComp.OnStrongImpact = (trainCar) => OnStrongImpact(trainCar, obstacle);
 
         // TODO: do this help stop removing on tile load?
         // Object.DontDestroyOnLoad(newObj);
@@ -137,9 +129,18 @@ public static class ObstacleSpawner
 
         var scale = UnityEngine.Random.Range(obstacle.MinScale, obstacle.MaxScale);
 
-        newObj.transform.localScale = OverrideScale ?? new Vector3(scale, scale, scale);
+        newObj.transform.localScale = new Vector3(scale, scale, scale);
+
+        if (obstacle.ScaleOffset.HasValue)
+            newObj.transform.localScale = obstacle.ScaleOffset.Value;
+
+        if (ScaleMultiplier != null)
+            newObj.transform.localScale = Vector3.Scale(newObj.transform.localScale, ScaleMultiplier.Value);
 
         AddMissingCollider(newObj, obstacle);
+
+        if (obstacle.CenterOfMass != null)
+            rb.centerOfMass = obstacle.CenterOfMass.Value;
 
         if (Main.settings.ShowDebugStuff)
         {
@@ -149,16 +150,15 @@ public static class ObstacleSpawner
 
         _spawnedObstacles.Add(obstacleComp);
 
-        Logger.Log($"[ObstacleSpawner] Created obstacle type={obstacle.Type} go={newObj} prefab={prefab}");
+        Logger.Log($"[ObstacleSpawner] Created obstacle type={obstacle.Type} go={newObj} prefab={prefab} scale={newObj.transform.localScale} scaleOffset={obstacle.ScaleOffset} overrideScale={ScaleMultiplier}");
 
         return newObj;
     }
 
-    private static void OnStrongImpact(Obstacle obstacle)
+    private static void OnStrongImpact(TrainCar car, Obstacle obstacle)
     {
-        Logger.Log($"[ObstacleSpawner] On strong impact (derailing) type={obstacle.Type}");
+        Logger.Log($"[ObstacleSpawner] On strong impact car={car} type={obstacle.Type}");
 
-        if (PlayerManager.Car != null)
-            PlayerManager.Car.Derail();
+        car.Derail();
     }
 }

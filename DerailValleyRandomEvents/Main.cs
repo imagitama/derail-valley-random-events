@@ -91,6 +91,9 @@ public static class Main
 
         ObstacleSpawner.ClearAllObstacles();
 
+        // mainly to clean up any lingering ones TODO: do better
+        NotificationHelper.ClearAllNotifications();
+
         ModToolbarAPI.Unregister(modEntry);
 
         ModEntry.Logger.Log("DerailValleyRandomEvents unloaded");
