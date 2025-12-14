@@ -1,7 +1,6 @@
 # 0.0.4
 
-- you can hear reports of upcoming obstacles (75% chance)
-- better UI
+- you may be notified of an upcoming obstacle (75% chance)
 - _any_ car will now derail from hitting obstacles
 - improve spawning alignment/scaling
 

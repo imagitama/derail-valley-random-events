@@ -2,8 +2,8 @@
 	"Releases": [
 		{
 			"Id": "DerailValleyRandomEvents",
-			"Version": "0.0.4-b1",
-			"DownloadUrl": "https://github.com/imagitama/derail-valley-desktop-gauge/releases/download/0.0.4-b1/DerailValleyRandomEvents_v0.0.4-b1.zip"
+			"Version": "0.0.4",
+			"DownloadUrl": "https://github.com/imagitama/derail-valley-desktop-gauge/releases/download/0.0.4/DerailValleyRandomEvents_v0.0.4.zip"
 		}
 	]
 }

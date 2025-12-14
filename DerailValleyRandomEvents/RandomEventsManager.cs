@@ -173,7 +173,7 @@ public class RandomEventsManager
         if (!Main.settings.RandomSpawningEnabled)
             return false;
 
-        if (PlayerManager.Car == null || PlayerManager.Car.GetAbsSpeed() == 0)
+        if (PlayerManager.Car == null || PlayerManager.Car.GetAbsSpeed() < 1f)
             return false;
 
         var chance = Main.settings.RandomChance;
