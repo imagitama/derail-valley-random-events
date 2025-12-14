@@ -6,22 +6,11 @@ A mod for the game [Derail Valley](https://store.steampowered.com/app/588030/Der
 
 **Depends on mod [Comms Radio API](https://www.nexusmods.com/derailvalley/mods/813?tab=files)**
 
-Template from https://github.com/derail-valley-modding/template-umm
-
-## WIP
-
-This is an early WIP version. It has issues and is NOT recommended for your save game.
-
-Open the in-game UI (press alt) and click the "RE" button in the top left corner for a utility window.
-
-- obstacles do not despawn (you must manually clean them up)
-- obstacles may despawn when the game loads a new world tile
-
 ### Known issues
 
-- ignores your biome and does not consider your location with what obstacles it spawns
-- does not persist with save games
-- does not spawn any events if you are near a track switch
+- only relies on your current biome so may spawn in a train station or weird place
+- may spawn in tunnels
+- cows are silly :)
 
 ## Events
 
@@ -33,10 +22,11 @@ Open the in-game UI (press alt) and click the "RE" button in the top left corner
 
 Clear an obstacle by using your Comm Radio and selecting the "Clear Obstacle" option and using it on an obstacle.
 
-| Obstacle  | Biome  | Description                                       |
-| --------- | ------ | ------------------------------------------------- |
-| Rockslide | Rock   | A group of heavy boulders are all over the track. |
-| Treefall  | Forest | A tree has fallen onto the track.                 |
+| Obstacle  | Biome         | Description                                                  |
+| --------- | ------------- | ------------------------------------------------------------ |
+| Rockslide | Rock          | A group of heavy boulders are all over the track.            |
+| Treefall  | Forest        | A tree has fallen onto the track.                            |
+| Cows      | Meadow, Field | Some clumsy cows have walked onto the track. Honk your horn! |
 
 ## Install
 
@@ -48,11 +38,11 @@ It checks every second if an event needs to be emitted.
 
 Then there is a percentage chance of the event occuring.
 
-An initial delay of 10 seconds after you load into a game before anything is checked.
+An initial delay of X seconds after you load into a game before anything is checked.
 
-At least 30 seconds between events.
+At least Y seconds between events.
 
-No more than 90 seconds between events.
+No more than Z seconds between events.
 
 ## Adding/editing a new obstacle mesh
 
@@ -71,6 +61,8 @@ If your gameobject doesn't have a collider or rigidbody component it will be add
 Created in VSCode (with C# and C# Dev Kit extensions) and MSBuild.
 
 1. Run `msbuild` in root to build
+
+Template from https://github.com/derail-valley-modding/template-umm
 
 ## Publishing
 
