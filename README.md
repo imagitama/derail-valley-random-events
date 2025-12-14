@@ -1,4 +1,4 @@
-# WORK IN PROGRESS - USE AT OWN RISK (DO NOT USE IN YOUR CAREER SAVES)
+# WORK IN PROGRESS - USE AT OWN RISK
 
 # Derail Valley Random Events mod
 
@@ -6,11 +6,11 @@ A mod for the game [Derail Valley](https://store.steampowered.com/app/588030/Der
 
 **Depends on mod [Comms Radio API](https://www.nexusmods.com/derailvalley/mods/813?tab=files)**
 
-### Known issues
+## Known issues
 
 - only relies on your current biome so may spawn in a train station or weird place
 - may spawn in tunnels
-- cows are silly :)
+- cows are clumsy and glitchy :)
 
 ## Events
 
@@ -32,17 +32,16 @@ Clear an obstacle by using your Comm Radio and selecting the "Clear Obstacle" op
 
 Download the zip and use Unity Mod Manager to install it.
 
-## How it works
+## When it happens
 
-It checks every second if an event needs to be emitted.
+Every second it checks some conditions:
 
-Then there is a percentage chance of the event occuring.
+- has there been enough time after your game has started
+- has a minimum time past OR has a maximum time past
+- are you in the correct biome
+- are you unlucky
 
-An initial delay of X seconds after you load into a game before anything is checked.
-
-At least Y seconds between events.
-
-No more than Z seconds between events.
+If this happens, a random obstacle will spawn ahead of your train which you can clear away using your comm radio (or a little nudge!).
 
 ## Adding/editing a new obstacle mesh
 
