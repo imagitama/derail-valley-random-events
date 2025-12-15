@@ -27,6 +27,7 @@ public class Obstacle
     public float SpawnHeightFromGround = 1f;
     public float? VerticalSpawnGap; // distance between spawns to avoid physics exploding
     public float? HorizontalSpawnGap; // distance between spawns to avoid physics exploding
+    public float? MaxRadius; // if to spawn on the ground inside a circle
     // rigidbody
     public float MinScale = 1f;
     public float MaxScale = 1f;
@@ -71,6 +72,7 @@ public class Obstacle
             SpawnHeightFromGround = SpawnHeightFromGround,
             VerticalSpawnGap = VerticalSpawnGap,
             HorizontalSpawnGap = HorizontalSpawnGap,
+            MaxRadius = MaxRadius,
             // rigidbody
             MinScale = MinScale,
             MaxScale = MaxScale,
@@ -111,6 +113,7 @@ $"MaxSpawnCount={MaxSpawnCount}," +
 $"SpawnHeightFromGround={SpawnHeightFromGround}," +
 $"VerticalSpawnGap={VerticalSpawnGap}," +
 $"HorizontalSpawnGap={HorizontalSpawnGap}," +
+$"MaxRadius={MaxRadius}," +
 $"MinScale={MinScale}," +
 $"MaxScale={MaxScale}," +
 $"MinMass={MinMass}," +

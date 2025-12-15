@@ -8,7 +8,7 @@ namespace DerailValleyRandomEvents;
 public class InGameWindow : MonoBehaviour, IModToolbarPanel
 {
     private UnityModManager.ModEntry.ModLogger Logger => Main.ModEntry.Logger;
-    private string? _lastMessage;
+    private SpawnedEvent? _lastResult;
     private ObstacleType? _selectedType;
     private bool _showDropdown = false;
     private float _spawnAheadDistance = 25f;
@@ -106,13 +106,7 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
 
     void UpdateLastMessage(SpawnedEvent? result)
     {
-        if (result == null)
-        {
-            _lastMessage = "Spawn failed";
-            return;
-        }
-
-        _lastMessage = $"Spawned {result.count}x {result.obstacle.Type} {_spawnAheadDistance}m away";
+        _lastResult = result;
     }
 
     void SpawnAhead()
@@ -122,7 +116,7 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         if (PlayerManager.Car == null)
             return;
 
-        Main.randomEventsManager.EmitObstacleEventAhead(new EventRequest()
+        var result = Main.randomEventsManager.EmitObstacleEventAhead(new EventRequest()
         {
             obstacleType = _selectedType,
             ignoreBiome = _ignoreBiome,
@@ -130,6 +124,8 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
             ignoreNearbyCheck = true,
             forceEverythingInPool = true
         });
+
+        UpdateLastMessage(result);
     }
 
     void SpawnBehind()
@@ -139,7 +135,7 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         if (PlayerManager.Car == null)
             return;
 
-        Main.randomEventsManager.EmitObstacleEventAhead(new EventRequest()
+        var result = Main.randomEventsManager.EmitObstacleEventAhead(new EventRequest()
         {
             obstacleType = _selectedType,
             ignoreBiome = _ignoreBiome,
@@ -148,6 +144,8 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
             flipDirection = true,
             forceEverythingInPool = true
         });
+
+        UpdateLastMessage(result);
     }
 
     void MakeSpawnerLookAtCamera()
@@ -200,9 +198,12 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
 
         var prefab = Main.randomEventsManager.GetObstaclePrefab(obstacle);
 
-        var rotation = _spawner!.transform.rotation;
+        if (prefab == null)
+            throw new System.Exception("No prefab");
 
-        Main.randomEventsManager.EmitObstacleEvent(new EventRequest() { intendedPos = localPos }, obstacle, prefab, rotation);
+        Quaternion? rotation = _spawner != null ? _spawner.transform.rotation : null;
+
+        Main.randomEventsManager.EmitObstacleEvent(new EventRequest() { intendedPos = localPos, intendedRot = rotation }, obstacle, prefab);
     }
 
     void ClearAllObstacles()
@@ -310,8 +311,8 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         if (Main.randomEventsManager == null)
             return;
 
-        if (_lastMessage != null)
-            GUILayout.Label($"Recently: {_lastMessage}");
+        if (_lastResult != null)
+            GUILayout.Label($"Spawned {_lastResult.count}x {_lastResult.obstacle.Type} {_lastResult.distance}m away (pos {_lastResult.position})");
 
         var bold = new GUIStyle(GUI.skin.label);
         bold.fontStyle = FontStyle.Bold;
@@ -390,6 +391,16 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
             SpawnBehind();
         }
         GUILayout.EndHorizontal();
+
+        if (_lastResult != null)
+        {
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button($"Spawn At Last Pos: {_lastResult.position}"))
+            {
+                Spawn(_lastResult.position);
+            }
+            GUILayout.EndHorizontal();
+        }
     }
 
     void DrawCustomSpawnSettings()

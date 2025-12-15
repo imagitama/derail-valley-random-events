@@ -54,7 +54,7 @@ public static class ObstacleSpawner
 
     public static void ClearAllObstacles()
     {
-        Main.ModEntry.Logger.Log($"[ObstacleSpawner] Clear all obstacles");
+        Main.ModEntry.Logger.Log($"[ObstacleSpawner] Clear {_spawnedObstacles.Count} obstacles");
 
         var obs = _spawnedObstacles.ToList();
 
@@ -103,6 +103,21 @@ public static class ObstacleSpawner
         }
     }
 
+    public static Vector3 GetObstacleScale(Obstacle obstacle)
+    {
+        var scale = UnityEngine.Random.Range(obstacle.MinScale, obstacle.MaxScale);
+
+        var localScale = new Vector3(scale, scale, scale);
+
+        if (obstacle.ScaleOffset.HasValue)
+            localScale = obstacle.ScaleOffset.Value;
+
+        if (ScaleMultiplier != null)
+            localScale = Vector3.Scale(localScale, ScaleMultiplier.Value);
+
+        return localScale;
+    }
+
     public static GameObject Create(GameObject prefab, Obstacle obstacle)
     {
         // keep in the world as it loads
@@ -121,21 +136,14 @@ public static class ObstacleSpawner
         newObj.layer = (int)DVLayer.Train_Big_Collider;
 
         var rb = newObj.GetComponent<Rigidbody>() ?? newObj.AddComponent<Rigidbody>();
-        rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
+        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic; // old: Continuous
         rb.interpolation = RigidbodyInterpolation.Interpolate;
+        rb.solverIterations = 10;
+        rb.solverVelocityIterations = 10;
         rb.mass = UnityEngine.Random.Range(obstacle.MinMass, obstacle.MaxMass);
         rb.drag = obstacle.Drag;
         rb.angularDrag = obstacle.AngularDrag;
-
-        var scale = UnityEngine.Random.Range(obstacle.MinScale, obstacle.MaxScale);
-
-        newObj.transform.localScale = new Vector3(scale, scale, scale);
-
-        if (obstacle.ScaleOffset.HasValue)
-            newObj.transform.localScale = obstacle.ScaleOffset.Value;
-
-        if (ScaleMultiplier != null)
-            newObj.transform.localScale = Vector3.Scale(newObj.transform.localScale, ScaleMultiplier.Value);
+        // rb.sleepThreshold = 0.01f; // default ~0.005
 
         AddMissingCollider(newObj, obstacle);
 

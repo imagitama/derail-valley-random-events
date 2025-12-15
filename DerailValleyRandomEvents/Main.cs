@@ -94,6 +94,8 @@ public static class Main
         // mainly to clean up any lingering ones TODO: do better
         NotificationHelper.ClearAllNotifications();
 
+        SpawnerHelper.Cleanup();
+
         ModToolbarAPI.Unregister(modEntry);
 
         ModEntry.Logger.Log("DerailValleyRandomEvents unloaded");

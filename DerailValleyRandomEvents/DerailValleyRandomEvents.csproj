@@ -51,6 +51,7 @@
 		<Reference Include="UnityEngine.AudioModule" />
 		<Reference Include="UnityEngine.UnityWebRequestModule" />
 		<Reference Include="UnityEngine.UnityWebRequestAudioModule" />
+		<Reference Include="UnityEngine.TerrainModule" />
 	</ItemGroup>
 
 	<!-- Mod Loader -->

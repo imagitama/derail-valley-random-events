@@ -1,3 +1,7 @@
+#
+
+- improved cow spawning + wobbliness + jitteryness
+
 # 0.0.4
 
 - you may be notified of an upcoming obstacle (75% chance)

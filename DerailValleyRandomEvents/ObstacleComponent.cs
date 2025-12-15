@@ -31,6 +31,10 @@ public class ObstacleComponent : MonoBehaviour
     public float _degreesPerSec = 300f;
     public float _moveSpeed = 5f;
 
+    float? _uprightDelayStart;
+    const float _uprightDelaySeconds = 1f;
+    const float _maxUprightAngle = 30f;
+
     void Start()
     {
         Logger.Log($"Obstacle.Start type={obstacle.Type}");
@@ -91,6 +95,12 @@ public class ObstacleComponent : MonoBehaviour
         }
     }
 
+    bool GetIsTippedOver()
+    {
+        var up = rb.transform.up;
+        return Vector3.Angle(up, Vector3.up) > _maxUprightAngle;
+    }
+
     void LookAtPlayer()
     {
         var aimPos = PlayerManager.PlayerTransform.position;
@@ -108,7 +118,6 @@ public class ObstacleComponent : MonoBehaviour
         if (obstacle.ScaredOfHorn)
             CheckIfShouldBeScared();
     }
-
 
     void CheckIfShouldBeScared()
     {
@@ -157,6 +166,8 @@ public class ObstacleComponent : MonoBehaviour
         if (rb == null)
             return;
 
+        HandleUprightRecovery();
+
         SmoothlyMoveTowardsTarget();
 
         if (obstacle.Gravity != 1)
@@ -167,19 +178,82 @@ public class ObstacleComponent : MonoBehaviour
             if (GetNeedsToLookAtPlayer())
                 LookAtPlayer();
         }
+
+    }
+
+    private bool _wasTippedOver = false;
+
+    void HandleUprightRecovery()
+    {
+        var isTippedOver = GetIsTippedOver();
+
+        if (isTippedOver != _wasTippedOver)
+        {
+            // Logger.Log("Got tipped over!");
+            _wasTippedOver = isTippedOver;
+        }
+
+        if (isTippedOver)
+        {
+            if (_uprightDelayStart == null)
+            {
+                _uprightDelayStart = Time.time;
+                return;
+            }
+
+            if (Time.time - _uprightDelayStart.Value >= _uprightDelaySeconds)
+            {
+                var currentUp = rb.transform.up;
+                var axis = Vector3.Cross(currentUp, Vector3.up);
+
+                if (axis.sqrMagnitude > 0.0001f)
+                {
+                    axis.Normalize();
+                    rb.angularVelocity = axis * (_degreesPerSec * Mathf.Deg2Rad);
+                }
+
+                _uprightDelayStart = null;
+
+                // Logger.Log("We are upright");
+            }
+        }
+        else
+        {
+            _uprightDelayStart = null;
+        }
     }
 
     void SmoothlyMoveTowardsTarget()
     {
         if (_targetRot.HasValue)
         {
-            var q = Quaternion.RotateTowards(rb.rotation, _targetRot.Value, _degreesPerSec * Time.fixedDeltaTime);
+            // var q = Quaternion.RotateTowards(rb.rotation, _targetRot.Value, _degreesPerSec * Time.fixedDeltaTime);
+            // rb.MoveRotation(q);
 
-            // float rotationWeight = 0.7f; // reduces rotation fight
+            Vector3 forward = rb.transform.forward;
+            Vector3 targetForward = _targetRot.Value * Vector3.forward;
 
-            // var q = Quaternion.Slerp(rb.rotation, _targetRot.Value, rotationWeight * Time.fixedDeltaTime);
+            forward.y = 0f;
+            targetForward.y = 0f;
 
-            rb.MoveRotation(q);
+            if (forward.sqrMagnitude < 0.0001f || targetForward.sqrMagnitude < 0.0001f)
+                return;
+
+            forward.Normalize();
+            targetForward.Normalize();
+
+            float angleDeg = Vector3.SignedAngle(forward, targetForward, Vector3.up);
+
+            float maxRadPerSec = _degreesPerSec * Mathf.Deg2Rad;
+            float desiredRadPerSec = Mathf.Clamp(
+                angleDeg * Mathf.Deg2Rad / Time.fixedDeltaTime,
+                -maxRadPerSec,
+                maxRadPerSec
+            );
+
+            Vector3 av = rb.angularVelocity;
+            av.y = desiredRadPerSec;
+            rb.angularVelocity = av;
 
             if (Quaternion.Angle(rb.rotation, _targetRot.Value) < _degreesThresholdWhenFinishedTurning)
                 _targetRot = null;

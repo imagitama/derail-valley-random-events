@@ -53,6 +53,8 @@ public class RandomEventsManager
     {
         try
         {
+            SpawnerHelper.OnFrame();
+
             var now = Time.time;
 
             if (_nextCleanupTime != null && now >= _nextCleanupTime)
@@ -232,7 +234,7 @@ public class RandomEventsManager
         return poolable[_rng.Next(poolable.Count)];
     }
 
-    public SpawnedEvent EmitObstacleEvent(EventRequest eventRequest, Obstacle incomingObstacle, GameObject prefab, Quaternion? overrideRotation = null)
+    public SpawnedEvent EmitObstacleEvent(EventRequest eventRequest, Obstacle incomingObstacle, GameObject prefab)
     {
         bool showWarning = Main.settings.WarningChance == 0 ? false : UnityEngine.Random.value < Main.settings.WarningChance;
         if (showWarning)
@@ -241,14 +243,21 @@ public class RandomEventsManager
         // avoid any reference issues too
         var obstacle = OverrideObstacle != null ? OverrideObstacle.Clone() : incomingObstacle.Clone();
 
-        var spawnCount = obstacle.MaxSpawnCount == null ? obstacle.MinSpawnCount : UnityEngine.Random.Range(obstacle.MinSpawnCount, (int)obstacle.MaxSpawnCount);
+        var spawnCount =
+            obstacle.MaxSpawnCount != null && obstacle.MinSpawnCount != null ?
+                UnityEngine.Random.Range(obstacle.MinSpawnCount, obstacle.MaxSpawnCount.Value) :
+                obstacle.MaxSpawnCount != null ?
+                    UnityEngine.Random.Range(1, obstacle.MaxSpawnCount.Value) :
+                    obstacle.MinSpawnCount != null ?
+                        obstacle.MinSpawnCount :
+                        1;
 
         var localPos = eventRequest.intendedPos;
 
         if (localPos == null)
             throw new Exception("Cannot emit obstacle event without a position");
 
-        var rotation = overrideRotation != null ? overrideRotation.Value : eventRequest.intendedRot != null ? (Quaternion)eventRequest.intendedRot : Quaternion.identity;
+        var rotation = eventRequest.intendedRot != null ? eventRequest.intendedRot.Value : Quaternion.identity;
 
         Logger.Log($"[RandomEventsManager] Emit obstacle event at position={localPos} rotation={rotation} type={obstacle.Type} prefab={prefab} count={spawnCount} ({obstacle.MinSpawnCount} -> {obstacle.MaxSpawnCount}) warn={showWarning}");
 
@@ -266,63 +275,75 @@ public class RandomEventsManager
                 transform.up * offset.y;    // up/down
         }
 
+        if (PreventAllObstacleDerailment)
+            obstacle.DerailThreshold = 0;
+
         var objects = new List<GameObject>();
 
-        for (var i = 0; i < spawnCount; i++)
+        if (obstacle.MaxRadius != null)
         {
-            Logger.Log($"[RandomEventsManager] Spawn obstacle #{i}");
-
-            if (PreventAllObstacleDerailment)
-                obstacle.DerailThreshold = 0;
-
-            var obj = ObstacleSpawner.Create(prefab, obstacle);
-            objects.Add(obj);
-
-            obj.transform.rotation = rotation;
-
-            if (ObstacleSpawner.RotationMultiplier != null)
-                obj.transform.rotation *= Quaternion.Euler(ObstacleSpawner.RotationMultiplier.Value);
-
-            var jitterDistance = 0.25f;
-
-            Vector3 spawnPos = obstaclePosInSky;
-            spawnPos.x += jitterDistance;
-
-            // cannot spawn multiple objects inside each other otherwise physics freaks out
-            if (obstacle.VerticalSpawnGap != null)
+            SpawnerHelper.Create = ObstacleSpawner.Create;
+            SpawnerHelper.SpawnAround(localPos.Value, prefab, spawnCount, maxRadius: 1000, minScale: obstacle.MinScale, maxScale: obstacle.MaxScale, obstacle: obstacle);
+        }
+        else
+        {
+            for (var i = 0; i < spawnCount; i++)
             {
-                var gap = i * obstacle.VerticalSpawnGap.Value;
-                spawnPos.y += gap;
+                Logger.Log($"[RandomEventsManager] Spawn obstacle #{i}");
+
+                var obj = ObstacleSpawner.Create(prefab, obstacle);
+                objects.Add(obj);
+
+                obj.transform.localScale = ObstacleSpawner.GetObstacleScale(obstacle);
+
+                obj.transform.rotation = rotation;
+
+                if (ObstacleSpawner.RotationMultiplier != null)
+                    obj.transform.rotation *= Quaternion.Euler(ObstacleSpawner.RotationMultiplier.Value);
+
+                var jitterDistance = 0.25f;
+
+                Vector3 spawnPos = obstaclePosInSky;
+                spawnPos.x += jitterDistance;
+
+                // cannot spawn multiple objects inside each other otherwise physics freaks out
+                if (obstacle.VerticalSpawnGap != null)
+                {
+                    var gap = i * obstacle.VerticalSpawnGap.Value;
+                    spawnPos.y += gap;
+                }
+                // TODO: combine with vertical?
+                else if (obstacle.HorizontalSpawnGap != null)
+                {
+                    var track = eventRequest.intendedTrack;
+
+                    if (track == null)
+                        throw new Exception("Need a track");
+
+                    float offset = i - (spawnCount - 1) / 2f;
+                    var gap = offset * obstacle.HorizontalSpawnGap.Value;
+
+                    spawnPos.z += gap;
+                }
+
+                if (obstacle.JitterAmount > 0)
+                    spawnPos = GetJitteredPos(spawnPos, obstacle.JitterAmount);
+
+                obj.transform.position = spawnPos;
+
+                if (obstacle.RotationOffset != null)
+                    obj.transform.rotation = obj.transform.rotation * obstacle.RotationOffset.Value;
             }
-            // TODO: combine with vertical?
-            else if (obstacle.HorizontalSpawnGap != null)
-            {
-                var track = eventRequest.intendedTrack;
-
-                if (track == null)
-                    throw new Exception("Need a track");
-
-                float offset = i - (spawnCount - 1) / 2f;
-                var gap = offset * obstacle.HorizontalSpawnGap.Value;
-
-                spawnPos.z += gap;
-            }
-
-            if (obstacle.JitterAmount > 0)
-                spawnPos = GetJitteredPos(spawnPos, obstacle.JitterAmount);
-
-            obj.transform.position = spawnPos;
-
-            if (obstacle.RotationOffset != null)
-                obj.transform.rotation = obj.transform.rotation * obstacle.RotationOffset.Value;
         }
 
         return new SpawnedEvent()
         {
+            position = localPos.Value,
             obstacle = obstacle,
             distance = eventRequest.distance!.Value, // trusting it
             count = spawnCount
         };
+
     }
 
     Vector3 GetJitteredPos(Vector3 pos, float maxJitterAmount)
@@ -425,7 +446,7 @@ public class RandomEventsManager
 
         var all = bundle.LoadAllAssets<GameObject>();
 
-        Logger.Log($"[RandomEventsManager] Found asset objects: {string.Join(",", all.Select(x => x.name))}");
+        Logger.Log($"[RandomEventsManager] Found asset objects: {string.Join(",", all.Select(x => x.name))} prefabName={obstacle.PrefabName}");
 
         if (obstacle.PrefabName != null)
             return all.First(x => x.name == obstacle.PrefabName) ?? throw new Exception($"Prefab '{obstacle.PrefabName}' not found in AssetBundle {bundle}");
