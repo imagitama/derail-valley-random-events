@@ -11,7 +11,6 @@ public class RandomEventsPanel : MonoBehaviour, IModToolbarPanel
     private SpawnedEvent? _lastResult;
     private ObstacleType? _selectedType;
     private bool _showDropdown = false;
-    private float _spawnAheadDistance = 50f;
     private bool _ignoreBiome = false;
     // spawner
     private GameObject? _spawner;
@@ -111,7 +110,7 @@ public class RandomEventsPanel : MonoBehaviour, IModToolbarPanel
 
     void SpawnAhead()
     {
-        Logger.Log($"[InGameWindow] Spawn ahead type={_selectedType} distance={_spawnAheadDistance}");
+        Logger.Log($"[InGameWindow] Spawn ahead type={_selectedType}");
 
         if (PlayerManager.Car == null)
             return;
@@ -120,7 +119,6 @@ public class RandomEventsPanel : MonoBehaviour, IModToolbarPanel
         {
             obstacleType = _selectedType,
             ignoreBiome = _ignoreBiome,
-            distance = _spawnAheadDistance,
             ignoreNearbyCheck = true,
             forceEverythingInPool = true
         });
@@ -130,7 +128,7 @@ public class RandomEventsPanel : MonoBehaviour, IModToolbarPanel
 
     void SpawnBehind()
     {
-        Logger.Log($"[InGameWindow] Spawn behind type={_selectedType} distance={_spawnAheadDistance}");
+        Logger.Log($"[InGameWindow] Spawn behind type={_selectedType}");
 
         if (PlayerManager.Car == null)
             return;
@@ -139,7 +137,6 @@ public class RandomEventsPanel : MonoBehaviour, IModToolbarPanel
         {
             obstacleType = _selectedType,
             ignoreBiome = _ignoreBiome,
-            distance = _spawnAheadDistance,
             ignoreNearbyCheck = true,
             flipDirection = true,
             forceEverythingInPool = true
@@ -356,16 +353,6 @@ public class RandomEventsPanel : MonoBehaviour, IModToolbarPanel
         {
             ClearAllObstacles();
         }
-        GUILayout.BeginHorizontal();
-        if (GUILayout.Button("Rerail Train"))
-        {
-            RerailTrain();
-        }
-        if (GUILayout.Button("Rerail Train (back)"))
-        {
-            RerailTrain(back: true);
-        }
-        GUILayout.EndHorizontal();
 
         Main.randomEventsManager.PreventAllObstacleDerailment = GUILayout.Toggle(Main.randomEventsManager.PreventAllObstacleDerailment, "Prevent obstacles from ever derailing");
     }
@@ -373,11 +360,11 @@ public class RandomEventsPanel : MonoBehaviour, IModToolbarPanel
     void DrawMoreSpawning()
     {
         GUILayout.BeginHorizontal();
-        GUILayout.Label($"{_spawnAheadDistance:F2}m", GUILayout.Width(60));
-        _spawnAheadDistance = GUILayout.HorizontalSlider(_spawnAheadDistance, 5f, 500f);
+        GUILayout.Label($"{Main.settings.ObstacleSpawnDistance:F2}m", GUILayout.Width(60));
+        Main.settings.ObstacleSpawnDistance = GUILayout.HorizontalSlider(Main.settings.ObstacleSpawnDistance, 5f, 500f);
         if (GUILayout.Button("Default", GUILayout.Width(60)))
         {
-            _spawnAheadDistance = Main.settings.ObstacleSpawnDistance;
+            Main.settings.ObstacleSpawnDistance = Settings.DefaultObstacleSpawnDistance;
         }
         GUILayout.EndHorizontal();
 
@@ -448,7 +435,7 @@ public class RandomEventsPanel : MonoBehaviour, IModToolbarPanel
             ForceCustomSpawnEvent();
         }
 
-        GUILayout.Label("More Spawning:");
+        GUILayout.Label("Distance:");
 
         DrawMoreSpawning();
     }
@@ -512,19 +499,6 @@ public class RandomEventsPanel : MonoBehaviour, IModToolbarPanel
 
         if (GUILayout.Button("Spawn At Spawner"))
             SpawnAtSpawner();
-    }
-
-    void RerailTrain(bool back = false)
-    {
-        Logger.Log("[] Rerail train");
-
-        if (PlayerManager.Car == null)
-            return;
-
-        if (PlayerManager.Car.derailed)
-            TrainCarHelper.RerailTrain(PlayerManager.Car);
-        else
-            TrainCarHelper.ReverseTrain(PlayerManager.Car);
     }
 
     void DrawTransformControls()

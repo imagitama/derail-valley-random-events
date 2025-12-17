@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using DV.Utils;
 using DV.VFX;
 using Unity.Mathematics;
@@ -10,54 +11,19 @@ namespace DerailValleyRandomEvents;
 
 public static class TrainCarHelper
 {
+    static TrainCarHelper()
+    {
+        CleanupHelper.Add(typeof(TrainCarHelper), () =>
+        {
+            Logger.Log($"Unsubbing from {hornUnsubscribes.Count} horns");
+            foreach (var unsub in hornUnsubscribes.ToList())
+                unsub();
+        });
+    }
+
     private static UnityModManager.ModEntry.ModLogger Logger => Main.ModEntry.Logger;
 
-    public static void RerailTrain(TrainCar trainCar, bool isReverse = false)
-    {
-        var (closestTrack, point) = RailTrack.GetClosest(trainCar.transform.position);
-
-        if (point == null)
-            return;
-
-        var rerailPos = (Vector3)point.Value.position + WorldMover.currentMove;
-
-        var forward = point.Value.forward;
-
-        if (isReverse)
-            forward = -forward;
-
-        void OnRerailed()
-        {
-            trainCar.brakeSystem.SetHandbrakePosition(0); //, forced: true
-            trainCar.OnRerailed -= OnRerailed;
-        }
-
-        trainCar.OnRerailed += OnRerailed;
-
-        if (trainCar.derailed)
-            trainCar.Rerail(closestTrack, rerailPos, forward);
-        else
-            trainCar.SetTrack(closestTrack, rerailPos, forward);
-    }
-
-    public static void ReverseTrain(TrainCar trainCar)
-    {
-        var (closestTrack, point) = RailTrack.GetClosest(trainCar.transform.position);
-
-        if (point == null)
-            return;
-
-        var rerailPos = (Vector3)point.Value.position + WorldMover.currentMove;
-
-        var forward = point.Value.forward;
-
-        trainCar.SetTrack(closestTrack, rerailPos, forward);
-
-        // TODO: do it in callback
-        trainCar.brakeSystem.SetHandbrakePosition(0);
-    }
-
-    public static List<Action> HornUnsubscribes = [];
+    private static List<Action> hornUnsubscribes = [];
 
     public static Action? SubscribeToHorn(TrainCar trainCar, Action onStart, Action onEnd)
     {
@@ -101,7 +67,7 @@ public static class TrainCarHelper
                 port.ValueUpdatedInternally -= OnValue;
             };
 
-            HornUnsubscribes.Add(unsub);
+            hornUnsubscribes.Add(unsub);
 
             return unsub;
         }

@@ -1,7 +1,7 @@
-#
+# 0.0.5
 
 - improved cow spawning + wobbliness + jitteryness
-- skip if obstacle would be inside a tunnel
+- skip if tunnel
 
 # 0.0.4
 

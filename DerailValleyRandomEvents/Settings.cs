@@ -4,6 +4,8 @@ namespace DerailValleyRandomEvents;
 
 public class Settings : UnityModManager.ModSettings, IDrawable
 {
+    public const float DefaultObstacleSpawnDistance = 500f;
+
     [Draw(Label = "Enable random events")]
     public bool RandomSpawningEnabled = false; // FALSE only while still WIP
     [Draw(Label = "How often to check if we need to emit (seconds, default 1)")]
@@ -18,7 +20,7 @@ public class Settings : UnityModManager.ModSettings, IDrawable
     [Draw(Label = "Minimum wait after loading into the game (seconds, default 100)")]
     public float InitialDelay = 100.0f;
     [Draw(Label = "How far infront of your train to spawn an obstacle (meters, default 500)")]
-    public float ObstacleSpawnDistance = 500f;
+    public float ObstacleSpawnDistance = DefaultObstacleSpawnDistance;
     [Draw(Label = "If to render debugging stuff")]
     public bool ShowDebugStuff = false;
     [Draw(Label = "Chance of getting a warning notification before an event (percent, 0 to disable, default 0.75)")]

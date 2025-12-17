@@ -557,8 +557,5 @@ public class RandomEventsManager
             Logger.Log($"[RandomEventsManager] Unload '{assetBundle.name}'");
             assetBundle.Unload(true);
         }
-
-        foreach (var unsub in TrainCarHelper.HornUnsubscribes)
-            unsub();
     }
 }
