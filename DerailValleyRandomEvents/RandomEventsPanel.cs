@@ -5,13 +5,13 @@ using DerailValleyModToolbar;
 
 namespace DerailValleyRandomEvents;
 
-public class InGameWindow : MonoBehaviour, IModToolbarPanel
+public class RandomEventsPanel : MonoBehaviour, IModToolbarPanel
 {
     private UnityModManager.ModEntry.ModLogger Logger => Main.ModEntry.Logger;
     private SpawnedEvent? _lastResult;
     private ObstacleType? _selectedType;
     private bool _showDropdown = false;
-    private float _spawnAheadDistance = 25f;
+    private float _spawnAheadDistance = 50f;
     private bool _ignoreBiome = false;
     // spawner
     private GameObject? _spawner;
@@ -342,7 +342,7 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
         if (_showCustomSpawnSettings)
             DrawCustomSpawnSettings();
 
-        if (GUILayout.Button($"<b>Custom Spawner {(_showSpawnerStuff ? "▼" : "▶")}</b>", GUI.skin.label)) _showSpawnerStuff = !_showSpawnerStuff;
+        if (GUILayout.Button($"<b>Spawner {(_showSpawnerStuff ? "▼" : "▶")}</b>", GUI.skin.label)) _showSpawnerStuff = !_showSpawnerStuff;
         if (_showSpawnerStuff)
             DrawSpawner();
 
@@ -641,7 +641,14 @@ public class InGameWindow : MonoBehaviour, IModToolbarPanel
     {
         var isEnabled = Main.randomEventsManager.OverrideObstacle != null;
 
+        if (!isEnabled)
+            GUILayout.Label("You must select an obstacle type to override");
+
+        GUI.enabled = isEnabled;
+
         var nowEnabled = GUILayout.Toggle(isEnabled, "Override");
+
+        GUI.enabled = true;
 
         if (nowEnabled != isEnabled)
         {
