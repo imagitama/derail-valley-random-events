@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using DV.Utils;
+using DV.VFX;
+using Unity.Mathematics;
 using UnityEngine;
 using UnityModManagerNet;
 
@@ -108,5 +111,19 @@ public static class TrainCarHelper
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Copied from DV.Rain.isInTunnel
+    /// </summary>
+    /// <param name="pos"></param>
+    /// <returns></returns>
+    public static bool GetIsInTunnel(Vector3 pos)
+    {
+        var ceilingDetection = SingletonBehaviour<CeilingDetection>.Instance;
+        int index = ceilingDetection.worldPositionedArray.GetIndex((float3)pos);
+        if (index < 0 || (double)ceilingDetection.copiedResults[index].point.y <= (double)pos.y + 3.0)
+            return false;
+        return true;
     }
 }

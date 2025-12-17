@@ -6,6 +6,7 @@ using DV.WorldTools;
 using DV.Utils;
 using UnityEngine;
 using UnityModManagerNet;
+using System.Threading.Tasks;
 
 namespace DerailValleyRandomEvents;
 
@@ -21,6 +22,7 @@ public class RandomEventsManager
     private float? _nextCleanupTime;
     public Obstacle? OverrideObstacle = null;
     public bool PreventAllObstacleDerailment = false;
+    public static bool IsCleanupEnabled = true;
 
     public enum EventCategory
     {
@@ -93,6 +95,10 @@ public class RandomEventsManager
 
     public void Cleanup()
     {
+        if (!IsCleanupEnabled)
+        {
+            return;
+        }
 
         var playerPos = PlayerManager.PlayerTransform.transform.position;
 
@@ -283,7 +289,28 @@ public class RandomEventsManager
         if (obstacle.MaxRadius != null)
         {
             SpawnerHelper.Create = ObstacleSpawner.Create;
-            SpawnerHelper.SpawnAround(localPos.Value, prefab, spawnCount, maxRadius: 1000, minScale: obstacle.MinScale, maxScale: obstacle.MaxScale, obstacle: obstacle);
+
+            // SpawnerHelper.SpawnAround(
+            //     localPos.Value,
+            //     prefab,
+            //     spawnCount,
+            //     maxRadius: 1000,
+            //     minScale: obstacle.MinScale,
+            //     maxScale: obstacle.MaxScale,
+            //     obstacle: obstacle
+            // );
+
+            AsyncHelper.StartCoroutine(
+                SpawnerHelper.SpawnAroundCoroutine(
+                    localPos.Value,
+                    prefab,
+                    spawnCount,
+                    maxRadius: 1000,
+                    minScale: obstacle.MinScale,
+                    maxScale: obstacle.MaxScale,
+                    obstacle: obstacle
+                )
+            );
         }
         else
         {
@@ -389,7 +416,15 @@ public class RandomEventsManager
 
         var currentBiome = GetCurrentBiome();
 
-        Logger.Log($"[RandomEventsManager] Current biome: {currentBiome}");
+        var inTunnel = TrainCarHelper.GetIsInTunnel(eventRequest.intendedPos.Value);
+
+        if (inTunnel)
+        {
+            Logger.Log($"[RandomEventsManager] Target is inside a tunnel - skipping");
+            return null;
+        }
+
+        Logger.Log($"[RandomEventsManager] Current biome: {currentBiome} inTunnel={inTunnel}");
 
         Biome? biomeToUse;
 

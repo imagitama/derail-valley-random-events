@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
@@ -11,24 +12,23 @@ public static class SoundHelper
     private static UnityModManager.ModEntry.ModLogger Logger => Main.ModEntry.Logger;
     static readonly Dictionary<string, AudioClip> _cache = new();
     static GameObject _root;
-    static CoroutineRunner _runner;
     static AudioSource _oneShotSource;
     static string soundsPath = Path.Combine(Main.ModEntry.Path, "Dependencies");
 
+    static SoundHelper()
+    {
+        CleanupHelper.Add(typeof(SoundHelper), () =>
+        {
+            GameObject.Destroy(_root);
+            _root = null;
+            _oneShotSource = null;
+        });
+    }
+
     static void Ensure()
     {
-        if (_root != null)
-            return;
-
-        _root = new GameObject("DerailValley_SoundHelper");
-        Object.DontDestroyOnLoad(_root);
-
-        _runner = _root.AddComponent<CoroutineRunner>();
-
-        _oneShotSource = _root.AddComponent<AudioSource>();
-        _oneShotSource.spatialBlend = 1f;
-        _oneShotSource.rolloffMode = AudioRolloffMode.Linear;
-        _oneShotSource.maxDistance = 50f;
+        _root = new GameObject("DerailValley_AsyncHelper");
+        UnityEngine.Object.DontDestroyOnLoad(_root);
 
         _oneShotSource = _root.AddComponent<AudioSource>();
         _oneShotSource.spatialBlend = 1f;
@@ -49,10 +49,10 @@ public static class SoundHelper
 
         var soundPos = position ?? PlayerManager.PlayerTransform.position;
 
-        _runner.StartCoroutine(LoadAndPlay(fullPath, soundPos, spatial, volume));
+        AsyncHelper.StartCoroutine(LoadAndPlay(fullPath, soundPos, spatial, volume));
     }
 
-    static System.Collections.IEnumerator LoadAndPlay(string fullPath, Vector3 position, bool spatial, float volume = 1f)
+    static IEnumerator LoadAndPlay(string fullPath, Vector3 position, bool spatial, float volume = 1f)
     {
         if (_cache.TryGetValue(fullPath, out var cached))
         {
@@ -109,5 +109,4 @@ public static class SoundHelper
         Object.Destroy(go, clip.length + 0.1f);
     }
 
-    class CoroutineRunner : MonoBehaviour { }
 }

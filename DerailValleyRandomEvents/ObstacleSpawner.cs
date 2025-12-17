@@ -14,6 +14,14 @@ public static class ObstacleSpawner
     public static Vector3? ScaleMultiplier = null;
     public static Vector3? RotationMultiplier = null;
 
+    static ObstacleSpawner()
+    {
+        CleanupHelper.Add(typeof(ObstacleSpawner), () =>
+        {
+            ClearAllObstacles();
+        });
+    }
+
     private static PhysicMaterial GetPhysicMaterialForObstacle(Obstacle obstacle)
     {
         if (_physicMaterialsForObstacles.ContainsKey(obstacle.Type))
@@ -150,11 +158,11 @@ public static class ObstacleSpawner
         if (obstacle.CenterOfMass != null)
             rb.centerOfMass = obstacle.CenterOfMass.Value;
 
-        if (Main.settings.ShowDebugStuff)
-        {
-            var debugSphere = RandomEventsManager.CreateDebugSphere(10f);
-            debugSphere.transform.SetParent(newObj.transform);
-        }
+        // if (Main.settings.ShowDebugStuff)
+        // {
+        //     var debugSphere = RandomEventsManager.CreateDebugSphere(10f);
+        //     debugSphere.transform.SetParent(newObj.transform);
+        // }
 
         _spawnedObstacles.Add(obstacleComp);
 

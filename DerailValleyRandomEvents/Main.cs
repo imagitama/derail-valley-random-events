@@ -48,7 +48,7 @@ public static class Main
                     label: "Random Events",
                     icon: "icon.png",
                     tooltip: "Configure Random Events",
-                    type: typeof(InGameWindow),
+                    type: typeof(RandomEventsPanel),
                     title: "Random Events",
                     width: 400
                 )
@@ -83,20 +83,17 @@ public static class Main
     {
         ModEntry.Logger.Log("DerailValleyRandomEvents unloading...");
 
+        // TODO: create a cleanup helper and have each thing add to it
+
         randomEventsManager.Stop();
         randomEventsManager = null;
 
         commsRadioManager.Stop();
         commsRadioManager = null;
 
-        ObstacleSpawner.ClearAllObstacles();
-
-        // mainly to clean up any lingering ones TODO: do better
-        NotificationHelper.ClearAllNotifications();
-
-        SpawnerHelper.Cleanup();
-
         ModToolbarAPI.Unregister(modEntry);
+
+        CleanupHelper.Cleanup();
 
         ModEntry.Logger.Log("DerailValleyRandomEvents unloaded");
         return true;

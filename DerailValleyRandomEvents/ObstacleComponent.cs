@@ -34,6 +34,7 @@ public class ObstacleComponent : MonoBehaviour
     float? _uprightDelayStart;
     const float _uprightDelaySeconds = 1f;
     const float _maxUprightAngle = 30f;
+    private DebugBox? debugBox;
 
     void Start()
     {
@@ -115,6 +116,22 @@ public class ObstacleComponent : MonoBehaviour
 
     void Update()
     {
+        if (Main.settings.ShowDebugStuff)
+        {
+            if (debugBox == null)
+                debugBox = new DebugBox(this.transform);
+
+            debugBox.Update();
+        }
+        else
+        {
+            if (debugBox != null)
+            {
+                debugBox.Cleanup();
+                debugBox = null;
+            }
+        }
+
         if (obstacle.ScaredOfHorn)
             CheckIfShouldBeScared();
     }
@@ -160,7 +177,6 @@ public class ObstacleComponent : MonoBehaviour
         Logger.Log($"Obstacle: Scared of horn! rot={_targetRot} pos={_targetPos}");
     }
 
-
     void FixedUpdate()
     {
         if (rb == null)
@@ -178,7 +194,6 @@ public class ObstacleComponent : MonoBehaviour
             if (GetNeedsToLookAtPlayer())
                 LookAtPlayer();
         }
-
     }
 
     private bool _wasTippedOver = false;
@@ -209,7 +224,7 @@ public class ObstacleComponent : MonoBehaviour
                 if (axis.sqrMagnitude > 0.0001f)
                 {
                     axis.Normalize();
-                    rb.angularVelocity = axis * (_degreesPerSec * Mathf.Deg2Rad);
+                    rb.angularVelocity = axis * ((_degreesPerSec * 2) * Mathf.Deg2Rad);
                 }
 
                 _uprightDelayStart = null;

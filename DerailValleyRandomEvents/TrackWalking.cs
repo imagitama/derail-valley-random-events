@@ -84,17 +84,38 @@ public static class TrackWalking
         return Vector3.Dot(forward, trackDir) > 0f;
     }
 
+    // public static float GetClosestT(this BezierCurve curve, Vector3 worldPos)
+    // {
+    //     float length = curve.length;
+    //     int samples = Mathf.Clamp(Mathf.CeilToInt(length * 10f), 50, 2000);
+
+    //     float bestT = 0;
+    //     float bestDist = float.MaxValue;
+
+    //     for (int i = 0; i <= samples; i++)
+    //     {
+    //         float t = i / (float)samples;
+    //         float dist = Vector3.SqrMagnitude(curve.GetPointAt(t) - worldPos);
+    //         if (dist < bestDist)
+    //         {
+    //             bestDist = dist;
+    //             bestT = t;
+    //         }
+    //     }
+    //     return bestT;
+    // }
+
     public static float GetClosestT(this BezierCurve curve, Vector3 worldPos)
     {
-        float length = curve.length;
-        int samples = Mathf.Clamp(Mathf.CeilToInt(length * 10f), 50, 2000);
+        const int coarseSamples = 32;
+        const int refineIterations = 5;
 
-        float bestT = 0;
+        float bestT = 0f;
         float bestDist = float.MaxValue;
 
-        for (int i = 0; i <= samples; i++)
+        for (int i = 0; i <= coarseSamples; i++)
         {
-            float t = i / (float)samples;
+            float t = i / (float)coarseSamples;
             float dist = Vector3.SqrMagnitude(curve.GetPointAt(t) - worldPos);
             if (dist < bestDist)
             {
@@ -102,8 +123,39 @@ public static class TrackWalking
                 bestT = t;
             }
         }
+
+        float range = 1f / coarseSamples;
+
+        for (int i = 0; i < refineIterations; i++)
+        {
+            float t0 = Mathf.Clamp01(bestT - range);
+            float t1 = Mathf.Clamp01(bestT + range);
+
+            float mid0 = Mathf.Lerp(t0, t1, 0.33f);
+            float mid1 = Mathf.Lerp(t0, t1, 0.66f);
+
+            float d0 = Vector3.SqrMagnitude(curve.GetPointAt(mid0) - worldPos);
+            float d1 = Vector3.SqrMagnitude(curve.GetPointAt(mid1) - worldPos);
+
+            if (d0 < d1)
+            {
+                bestT = mid0;
+                bestDist = d0;
+                t1 = mid1;
+            }
+            else
+            {
+                bestT = mid1;
+                bestDist = d1;
+                t0 = mid0;
+            }
+
+            range *= 0.5f;
+        }
+
         return bestT;
     }
+
 
     public static (RailTrack, Vector3, Quaternion) GetAheadTrack(this RailTrack current, Vector3 startWorldPos, Vector3 velocity, double aheadDistance)
     {
