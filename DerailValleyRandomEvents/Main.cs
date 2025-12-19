@@ -38,10 +38,7 @@ public static class Main
             harmony.PatchAll(Assembly.GetExecutingAssembly());
 
             randomEventsManager = new RandomEventsManager();
-            randomEventsManager.Start();
-
             commsRadioManager = new CommsRadioManager();
-            commsRadioManager.Start();
 
             ModToolbarAPI.Register(modEntry)
                 .AddPanelControl(
@@ -83,17 +80,9 @@ public static class Main
     {
         ModEntry.Logger.Log("DerailValleyRandomEvents unloading...");
 
-        // TODO: create a cleanup helper and have each thing add to it
-
-        randomEventsManager.Stop();
-        randomEventsManager = null;
-
-        commsRadioManager.Stop();
-        commsRadioManager = null;
+        CleanupHelper.Cleanup();
 
         ModToolbarAPI.Unregister(modEntry);
-
-        CleanupHelper.Cleanup();
 
         ModEntry.Logger.Log("DerailValleyRandomEvents unloaded");
         return true;

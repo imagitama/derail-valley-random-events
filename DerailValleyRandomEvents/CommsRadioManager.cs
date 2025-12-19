@@ -1,28 +1,28 @@
 using CommsRadioAPI;
 using UnityEngine;
+using UnityModManagerNet;
 
 namespace DerailValleyRandomEvents;
 
 public class CommsRadioManager
 {
+    UnityModManager.ModEntry.ModLogger Logger => Main.ModEntry.Logger;
     CommsRadioMode? _mode;
 
-    public void Start()
+    public CommsRadioManager()
     {
-        Main.ModEntry.Logger.Log("[CommsRadioManager] Start");
+        Logger.Log("[CommsRadioManager] Start");
+
+        CleanupHelper.Add(typeof(RandomEventsManager), () =>
+        {
+            if (_mode != null)
+                GameObject.Destroy(_mode);
+        });
 
         ControllerAPI.Ready += () =>
         {
-            Main.ModEntry.Logger.Log("[CommsRadioManager] Controller is ready");
+            Logger.Log("[CommsRadioManager] Controller is ready");
             _mode = CommsRadioMode.Create(new ObstacleClearerBehavior(), new Color(0.53f, 0f, 1f));
         };
-    }
-
-    public void Stop()
-    {
-        Main.ModEntry.Logger.Log("[CommsRadioManager] Stop");
-
-        if (_mode != null)
-            GameObject.Destroy(_mode);
     }
 }

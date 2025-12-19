@@ -13,7 +13,7 @@ class ObstacleClearerBehavior : AStateBehaviour
 
     public ObstacleClearerBehavior(
         ObstacleComponent? obstacleToClear = null, bool shouldAttemptClear = false) : base(
-            new CommsRadioState(titleText: "Clear Obstacle", contentText: $"Use this on an obstacle to clear it\nObstacle: {(obstacleToClear != null ? $"{obstacleToClear.GetObstacleInfo()}" : "none")}"))
+            new CommsRadioState(titleText: "Clear Obstacle", contentText: $"Use this on an obstacle to clear it\nObstacle: {(obstacleToClear != null ? $"{obstacleToClear.obstacle.Label}" : "none")}"))
     {
         _obstacleToClear = obstacleToClear;
 

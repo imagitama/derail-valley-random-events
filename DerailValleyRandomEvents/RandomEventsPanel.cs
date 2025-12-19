@@ -2,14 +2,16 @@ using DV.OriginShift;
 using UnityEngine;
 using UnityModManagerNet;
 using DerailValleyModToolbar;
+using System.Linq;
 
 namespace DerailValleyRandomEvents;
 
 public class RandomEventsPanel : MonoBehaviour, IModToolbarPanel
 {
     private UnityModManager.ModEntry.ModLogger Logger => Main.ModEntry.Logger;
+    private Obstacle? _overrideObstacle;
     private SpawnedEvent? _lastResult;
-    private ObstacleType? _selectedType;
+    private string? _selectedType;
     private bool _showDropdown = false;
     private bool _ignoreBiome = false;
     // spawner
@@ -85,7 +87,7 @@ public class RandomEventsPanel : MonoBehaviour, IModToolbarPanel
         Main.randomEventsManager.EmitObstacleEventAhead(new EventRequest());
     }
 
-    void ForceCustomSpawnEvent(ObstacleType? overrideType = null)
+    void ForceCustomSpawnEvent(string? overrideType = null)
     {
         Logger.Log("[InGameWindow] Spawn custom event");
 
@@ -95,8 +97,10 @@ public class RandomEventsPanel : MonoBehaviour, IModToolbarPanel
         var result = Main.randomEventsManager.EmitObstacleEventAhead(new EventRequest()
         {
             obstacleType = overrideType ?? _selectedType,
+            obstacle = _overrideObstacle,
             ignoreBiome = _ignoreBiome,
             ignoreNearbyCheck = true,
+            ignoreBuiltUpAreaCheck = true,
             forceEverythingInPool = true
         });
 
@@ -108,37 +112,23 @@ public class RandomEventsPanel : MonoBehaviour, IModToolbarPanel
         _lastResult = result;
     }
 
-    void SpawnAhead()
+    void Spawn(Vector3? position = null, Quaternion? rotation = null, bool behind = false)
     {
-        Logger.Log($"[InGameWindow] Spawn ahead type={_selectedType}");
+        Logger.Log($"[InGameWindow] Spawn type={_selectedType} pos={position} rot={rotation} behind={behind}");
 
         if (PlayerManager.Car == null)
             return;
 
         var result = Main.randomEventsManager.EmitObstacleEventAhead(new EventRequest()
         {
+            intendedPos = position,
+            intendedRot = rotation,
+            obstacle = _overrideObstacle,
             obstacleType = _selectedType,
             ignoreBiome = _ignoreBiome,
             ignoreNearbyCheck = true,
-            forceEverythingInPool = true
-        });
-
-        UpdateLastMessage(result);
-    }
-
-    void SpawnBehind()
-    {
-        Logger.Log($"[InGameWindow] Spawn behind type={_selectedType}");
-
-        if (PlayerManager.Car == null)
-            return;
-
-        var result = Main.randomEventsManager.EmitObstacleEventAhead(new EventRequest()
-        {
-            obstacleType = _selectedType,
-            ignoreBiome = _ignoreBiome,
-            ignoreNearbyCheck = true,
-            flipDirection = true,
+            ignoreBuiltUpAreaCheck = true,
+            flipDirection = behind,
             forceEverythingInPool = true
         });
 
@@ -184,30 +174,19 @@ public class RandomEventsPanel : MonoBehaviour, IModToolbarPanel
         _spawner!.transform.position = localPosHigher;
     }
 
-    void Spawn(Vector3 localPos)
-    {
-        Logger.Log($"[InGameWindow] Spawn type={_selectedType} at={localPos}");
-
-        if (_selectedType == null)
-            return;
-
-        var obstacle = ObstacleRegistry.GetObstacleByType(_selectedType.Value);
-
-        var prefab = Main.randomEventsManager.GetObstaclePrefab(obstacle);
-
-        if (prefab == null)
-            throw new System.Exception("No prefab");
-
-        Quaternion? rotation = _spawner != null ? _spawner.transform.rotation : null;
-
-        Main.randomEventsManager.EmitObstacleEvent(new EventRequest() { intendedPos = localPos, intendedRot = rotation }, obstacle, prefab);
-    }
-
     void ClearAllObstacles()
     {
         Logger.Log($"[InGameWindow] Clear all obstacles");
 
         ObstacleSpawner.ClearAllObstacles();
+    }
+
+    void ExplodeAllObstacles()
+    {
+        Logger.Log($"[InGameWindow] Explode all obstacles");
+
+        foreach (var comp in ObstacleSpawner.GetAllObstacles().ToList())
+            comp.Explode();
     }
 
     void MoveSpawnerToCameraTarget()
@@ -337,7 +316,7 @@ public class RandomEventsPanel : MonoBehaviour, IModToolbarPanel
 
         if (GUILayout.Button($"<b>Custom Spawn Settings {(_showCustomSpawnSettings ? "▼" : "▶")}</b>", GUI.skin.label)) _showCustomSpawnSettings = !_showCustomSpawnSettings;
         if (_showCustomSpawnSettings)
-            DrawCustomSpawnSettings();
+            DrawCustomSpawnSettings(rect.width);
 
         if (GUILayout.Button($"<b>Spawner {(_showSpawnerStuff ? "▼" : "▶")}</b>", GUI.skin.label)) _showSpawnerStuff = !_showSpawnerStuff;
         if (_showSpawnerStuff)
@@ -352,6 +331,11 @@ public class RandomEventsPanel : MonoBehaviour, IModToolbarPanel
         if (GUILayout.Button("Clear All Obstacles"))
         {
             ClearAllObstacles();
+        }
+
+        if (GUILayout.Button("Explode All Obstacles"))
+        {
+            ExplodeAllObstacles();
         }
 
         Main.randomEventsManager.PreventAllObstacleDerailment = GUILayout.Toggle(Main.randomEventsManager.PreventAllObstacleDerailment, "Prevent obstacles from ever derailing");
@@ -371,11 +355,11 @@ public class RandomEventsPanel : MonoBehaviour, IModToolbarPanel
         GUILayout.BeginHorizontal();
         if (GUILayout.Button("Spawn Ahead"))
         {
-            SpawnAhead();
+            Spawn();
         }
         if (GUILayout.Button("Spawn Behind"))
         {
-            SpawnBehind();
+            Spawn(behind: true);
         }
         GUILayout.EndHorizontal();
 
@@ -384,13 +368,16 @@ public class RandomEventsPanel : MonoBehaviour, IModToolbarPanel
             GUILayout.BeginHorizontal();
             if (GUILayout.Button($"Spawn At Last Pos: {_lastResult.position}"))
             {
-                Spawn(_lastResult.position);
+                Quaternion? rotation = _spawner != null ? _spawner.transform.rotation : null;
+                Spawn(position: _lastResult.position, rotation);
             }
             GUILayout.EndHorizontal();
         }
     }
 
-    void DrawCustomSpawnSettings()
+    const float columnWidth = 150f;
+
+    void DrawCustomSpawnSettings(float panelWidth)
     {
         if (GUILayout.Button("Force Normal Spawn"))
         {
@@ -404,28 +391,43 @@ public class RandomEventsPanel : MonoBehaviour, IModToolbarPanel
 
         if (_showDropdown)
         {
-            var names = System.Enum.GetNames(typeof(ObstacleType));
+            var names = ObstacleRegistry.Obstacles.Select(x => x.Type).ToList();
+            int columns = Mathf.Max(1, Mathf.FloorToInt(panelWidth / columnWidth));
 
-            GUILayout.BeginHorizontal();
-            for (int i = 0; i < names.Length; i++)
+            GUILayout.BeginVertical();
+
+            for (int i = 0; i < names.Count; i++)
             {
-                if (GUILayout.Button(names[i]))
+                if (i % columns == 0)
+                    GUILayout.BeginHorizontal();
+
+                var name = names[i];
+                if (GUILayout.Button(name, GUILayout.Width(columnWidth)))
                 {
-                    if (_selectedType == (ObstacleType)i)
+                    if (_selectedType == name)
                         ClearSelectedType();
                     else
                     {
-                        _selectedType = (ObstacleType)i;
-                        Main.randomEventsManager.OverrideObstacle = ObstacleRegistry.GetObstacleByType(_selectedType.Value).Clone();
+                        _selectedType = name;
+                        _overrideObstacle = ObstacleRegistry.GetObstacleByType(_selectedType).Clone();
                     }
 
                     _showDropdown = false;
                     HydrateEditor();
                 }
+
+                if ((i + 1) % columns == 0)
+                    GUILayout.EndHorizontal();
             }
+
+            if (names.Count % columns != 0)
+                GUILayout.EndHorizontal();
+
+            GUILayout.EndVertical();
+
+
             if (GUILayout.Button("CLEAR"))
                 ClearSelectedType();
-            GUILayout.EndHorizontal();
         }
 
         DrawTransformControls();
@@ -445,7 +447,7 @@ public class RandomEventsPanel : MonoBehaviour, IModToolbarPanel
     void ClearSelectedType()
     {
         _selectedType = null;
-        Main.randomEventsManager.OverrideObstacle = null;
+        _overrideObstacle = null;
     }
 
     void DrawSpawner()
@@ -581,7 +583,7 @@ public class RandomEventsPanel : MonoBehaviour, IModToolbarPanel
 
     void HydrateEditor()
     {
-        var obstacle = Main.randomEventsManager.OverrideObstacle;
+        var obstacle = _overrideObstacle;
 
         Logger.Log($"[InGameWindow] Hydrate editor type={_selectedType}");
 
@@ -613,31 +615,12 @@ public class RandomEventsPanel : MonoBehaviour, IModToolbarPanel
 
     void DrawOverrideForm()
     {
-        var isEnabled = Main.randomEventsManager.OverrideObstacle != null;
+        var isEnabled = _overrideObstacle != null;
 
         if (!isEnabled)
             GUILayout.Label("You must select an obstacle type to override");
 
-        GUI.enabled = isEnabled;
-
-        var nowEnabled = GUILayout.Toggle(isEnabled, "Override");
-
-        GUI.enabled = true;
-
-        if (nowEnabled != isEnabled)
-        {
-            if (nowEnabled && _selectedType != null)
-            {
-                Main.randomEventsManager.OverrideObstacle = ObstacleRegistry.GetObstacleByType(_selectedType.Value).Clone();
-            }
-            else
-            {
-                Main.randomEventsManager.OverrideObstacle = null;
-            }
-            HydrateEditor();
-        }
-
-        var obstacleRef = Main.randomEventsManager.OverrideObstacle;
+        var obstacleRef = _overrideObstacle;
         if (obstacleRef == null)
             return;
 

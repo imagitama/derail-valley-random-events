@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using UnityEngine;
 using UnityModManagerNet;
 
@@ -36,7 +37,7 @@ public static class MeshUtils
         return root;
     }
 
-    private static Mesh CreatePyramidMesh()
+    public static Mesh CreatePyramidMesh()
     {
         var mesh = new Mesh();
 
@@ -71,4 +72,49 @@ public static class MeshUtils
         return mesh;
     }
 
+    public static GameObject CreateDebugSphere(float scale = 2f)
+    {
+        var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        go.transform.localScale = new Vector3(scale, scale, scale);
+
+        var collider = go.GetComponent<Collider>();
+        if (collider != null)
+            GameObject.Destroy(collider);
+
+        var renderer = go.GetComponent<MeshRenderer>();
+        var mat = new Material(Shader.Find("Standard"));
+        mat.color = new Color(1f, 0f, 0f, 0.35f);
+        mat.SetFloat("_Mode", 3);                       // Transparent
+        mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        mat.SetInt("_ZWrite", 0);
+        mat.DisableKeyword("_ALPHATEST_ON");
+        mat.EnableKeyword("_ALPHABLEND_ON");
+        mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+        mat.renderQueue = 3000;
+
+        renderer.material = mat;
+
+        return go;
+    }
+
+    public static BoxCollider AddOrUpdateCombinedBoxCollider(GameObject root)
+    {
+        var renderers = root.GetComponentsInChildren<Renderer>();
+        if (renderers.Length == 0)
+            throw new Exception("No renderers found in children");
+
+        Bounds bounds = renderers[0].bounds;
+
+        for (int i = 1; i < renderers.Length; i++)
+            bounds.Encapsulate(renderers[i].bounds);
+
+        // NOTE: destroying an existing collider wont actually happen until next frame
+
+        var collider = root.GetComponent<BoxCollider>() ?? root.AddComponent<BoxCollider>();
+        collider.center = root.transform.InverseTransformPoint(bounds.center);
+        collider.size = root.transform.InverseTransformVector(bounds.size);
+
+        return collider;
+    }
 }

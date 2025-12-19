@@ -2,9 +2,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using UnityModManagerNet;
 using System;
-using System.Threading.Tasks;
 using System.Linq;
-using DV.OriginShift;
 using System.Collections;
 
 namespace DerailValleyRandomEvents;
@@ -76,9 +74,9 @@ public static class SpawnerHelper
     /// Attempts to spawn X number of instances of a prefab object around a specific point.
     /// It must be run as a coroutine as running it synchronously causes weird glitches.
     /// </summary>
-    public static IEnumerator SpawnAroundCoroutine(Vector3 intendedPos, GameObject prefab, int count, float maxRadius, float minScale, float maxScale, Quaternion? rotation = null, Obstacle? obstacle = null)
+    public static IEnumerator SpawnAroundCoroutine(Obstacle obstacle, Vector3 intendedPos, int count, float maxRadius, Quaternion? rotation = null)
     {
-        Logger.Log($"SpawnAroundCoroutine intendedPos={intendedPos} prefab={prefab} count={count} maxRadius={maxRadius} minScale={minScale} maxScale={maxScale} rotation={rotation} obstacle={(obstacle == null ? "null" : obstacle.Type)}");
+        Logger.Log($"SpawnAroundCoroutine intendedPos={intendedPos} count={count} maxRadius={maxRadius}  rotation={rotation} obstacle={(obstacle == null ? "null" : obstacle.Type)}");
 
         float r = 0f;
 
@@ -91,9 +89,11 @@ public static class SpawnerHelper
 
         for (int i = 0; i < count; i++)
         {
-            Vector3 scale = obstacle != null ? ObstacleSpawner.GetObstacleScale(obstacle) : Vector3.one * UnityEngine.Random.Range(minScale, maxScale);
+            Vector3 scale = ObstacleSpawner.GetObstacleScale(obstacle!);
 
-            // NOTE: adds to internal registry that gets cleaned up
+            var prefab = ObstacleSpawner.GetRandomObstaclePrefab(obstacle!);
+
+            // NOTE: should add to internal registry that gets cleaned up
             var obj = Create?.Invoke(prefab, obstacle);
             obj!.transform.localScale = scale;
 
@@ -110,7 +110,7 @@ public static class SpawnerHelper
 
             List<FreeSpot> freeSpots = new List<FreeSpot>();
 
-            Logger.Log($"  Spawn #{i} halfExtents={halfExtents} layer={obj.layer}");
+            // Logger.Log($"  Spawn #{i} halfExtents={halfExtents}");
 
             while (r <= maxRadius)
             {
@@ -220,7 +220,7 @@ public static class SpawnerHelper
 
                 var finalSpawnPos = best.position;
 
-                Logger.Log($"Found {freeSpots.Count} free spots eventPos={intendedPos} finalPos={finalSpawnPos} best={best.position} terrainY={Terrain.activeTerrain.transform.position.y}");
+                // Logger.Log($"Found {freeSpots.Count} free spots eventPos={intendedPos} finalPos={finalSpawnPos} best={best.position} terrainY={Terrain.activeTerrain.transform.position.y}");
 
                 // can be cleaned up by this time
                 if (obj != null)

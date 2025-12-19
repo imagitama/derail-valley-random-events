@@ -9,6 +9,7 @@ using UnityModManagerNet;
 
 namespace DerailValleyRandomEvents;
 
+// TODO: move helpers to utils
 public static class TrainCarHelper
 {
     static TrainCarHelper()
@@ -91,5 +92,22 @@ public static class TrainCarHelper
         if (index < 0 || (double)ceilingDetection.copiedResults[index].point.y <= (double)pos.y + 3.0)
             return false;
         return true;
+    }
+
+    public static TrainCar? GetCarFromCollision(Collision collision)
+    {
+        var current = collision.collider.transform;
+
+        while (current != null)
+        {
+            var car = current.GetComponent<TrainCar>();
+
+            if (car != null)
+                return car;
+
+            current = current.parent;
+        }
+
+        return null;
     }
 }

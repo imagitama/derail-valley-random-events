@@ -1,3 +1,16 @@
+# 0.0.6
+
+- can now manually spawn in-game animals:
+  - cows
+  - goats
+  - sheep
+  - cats
+  - pigs
+  - chickens
+- low poly cow replaced with in-game one (does not "destruct" into multiple pieces)
+- skip spawning if near city/town
+- added setting to configure cleanup distance
+
 # 0.0.5
 
 - improved cow spawning + wobbliness + jitteryness

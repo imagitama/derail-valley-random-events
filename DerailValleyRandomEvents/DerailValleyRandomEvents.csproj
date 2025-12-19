@@ -31,12 +31,18 @@
 		<Reference Include="DV.Simulation" />
 		<Reference Include="DV.UI" />
 		<Reference Include="DV.UIFramework" />
+		<Reference Include="DV.WeatherSystem" />
 	</ItemGroup>
 
 	<!-- Other Mods -->
 	<ItemGroup>
 		<Reference Include="CommsRadioAPI" />
 		<Reference Include="DerailValleyModToolbar" />
+	</ItemGroup>
+	<ItemGroup>
+		<Reference Include="DerailValleyUsefulUtils-1.0.0">
+			<HintPath>Dependencies\DerailValleyUsefulUtils-1.0.0.dll</HintPath>
+		</Reference>
 	</ItemGroup>
 
 	<!-- Unity -->
@@ -54,6 +60,7 @@
 		<Reference Include="UnityEngine.TerrainModule" />
 		<Reference Include="Unity.Postprocessing.Runtime" />
 		<Reference Include="Unity.Mathematics" />
+		<Reference Include="UnityEngine.AnimationModule" />
 	</ItemGroup>
 
 	<!-- Mod Loader -->

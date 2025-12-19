@@ -21,6 +21,8 @@ public class Settings : UnityModManager.ModSettings, IDrawable
     public float InitialDelay = 100.0f;
     [Draw(Label = "How far infront of your train to spawn an obstacle (meters, default 500)")]
     public float ObstacleSpawnDistance = DefaultObstacleSpawnDistance;
+    [Draw(Label = "How far should an obstacle be until it is cleaned up (removed) from the game (meters, default 550)")]
+    public float ObstacleCleanupDistance = DefaultObstacleSpawnDistance + 50f;
     [Draw(Label = "If to render debugging stuff")]
     public bool ShowDebugStuff = false;
     [Draw(Label = "Chance of getting a warning notification before an event (percent, 0 to disable, default 0.75)")]

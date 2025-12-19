@@ -1,5 +1,7 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace DerailValleyRandomEvents;
@@ -13,6 +15,8 @@ public static class AsyncHelper
     {
         CleanupHelper.Add(typeof(AsyncHelper), () =>
         {
+            _runner!.StopAllCoroutines();
+
             GameObject.Destroy(_root);
             _root = null;
             _runner = null;

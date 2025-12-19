@@ -1,4 +1,6 @@
 using DV.OriginShift;
+using DV.Utils;
+using DV.WorldTools;
 using UnityEngine;
 
 namespace DerailValleyRandomEvents;
@@ -32,5 +34,12 @@ public static class PlayerUtils
 
         Vector3 worldPos = PlayerManager.PlayerTransform.position;
         return worldPos;
+    }
+
+    public static Biome GetCurrentBiome()
+    {
+        BiomeProvider instance = SingletonBehaviour<BiomeProvider>.Instance;
+        var currentBiome = instance.CurrentBiome;
+        return currentBiome;
     }
 }

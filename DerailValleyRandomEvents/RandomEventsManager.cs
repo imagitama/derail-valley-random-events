@@ -7,6 +7,7 @@ using DV.Utils;
 using UnityEngine;
 using UnityModManagerNet;
 using System.Threading.Tasks;
+using DerailValleyUsefulUtils;
 
 namespace DerailValleyRandomEvents;
 
@@ -16,11 +17,9 @@ public class RandomEventsManager
     private readonly System.Random _rng = new System.Random();
     private float _nextCheckTime;
     private float _nextEligibleEventTime;
-    private Dictionary<ObstacleType, AssetBundle> _obstacleBundles = [];
     private GameObject? _updateDriver;
     private GameObject? _debugSphere;
     private float? _nextCleanupTime;
-    public Obstacle? OverrideObstacle = null;
     public bool PreventAllObstacleDerailment = false;
     public static bool IsCleanupEnabled = true;
 
@@ -29,9 +28,15 @@ public class RandomEventsManager
         Obstacle
     }
 
-    public void Start()
+    public RandomEventsManager()
     {
         Logger.Log("[RandomEventsManager] Start");
+
+        CleanupHelper.Add(typeof(RandomEventsManager), () =>
+        {
+            GameObject.Destroy(_updateDriver);
+            GameObject.Destroy(_debugSphere);
+        });
 
         var now = Time.time;
         _nextCheckTime = now + Main.settings.CheckIntervalSeconds;
@@ -103,24 +108,23 @@ public class RandomEventsManager
         var playerPos = PlayerManager.PlayerTransform.transform.position;
 
         var obstacles = ObstacleSpawner.GetAllObstacles().ToList();
-
-        Logger.Log($"[RandomEventsManager] Cleanup ({obstacles.Count})");
+        var totalCount = obstacles.Count;
 
         var cleanupCount = 0;
 
-        foreach (var obstacle in obstacles)
+        foreach (var obstacleObj in obstacles)
         {
-            var distance = Vector3.Distance(playerPos, obstacle.transform.position);
-            var maxDistance = Main.settings.ObstacleSpawnDistance + 50f;
+            var distance = Vector3.Distance(playerPos, obstacleObj.transform.position);
+            var maxDistance = Main.settings.ObstacleCleanupDistance;
             if (distance > maxDistance)
             {
-                Logger.Log($"[RandomEventsManager] Cleaning up '{obstacle}' (distance {distance} > {maxDistance})");
-                ObstacleSpawner.CleanupObstacle(obstacle);
+                Logger.Log($"[RandomEventsManager] Cleaning up '{obstacleObj.name}' (distance {distance} > {maxDistance})");
+                ObstacleSpawner.CleanupObstacle(obstacleObj);
                 cleanupCount++;
             }
         }
 
-        Logger.Log($"[RandomEventsManager] Cleaned up {cleanupCount} obstacles");
+        Logger.Log($"[RandomEventsManager] Cleaned up {cleanupCount} / {totalCount} obstacles");
     }
 
     public bool GetIsInOrOnAnyTrainCar()
@@ -139,7 +143,7 @@ public class RandomEventsManager
         {
             Logger.Log("[RandomEventsManager] Create debug sphere...");
 
-            _debugSphere = CreateDebugSphere();
+            _debugSphere = MeshUtils.CreateDebugSphere();
 
             var parent = WorldMover.OriginShiftParent;
             _debugSphere.transform.SetParent(parent);
@@ -148,33 +152,6 @@ public class RandomEventsManager
         var newSpherePos = new Vector3(obstacleLocalPos.x, obstacleLocalPos.y + 5f, obstacleLocalPos.z);
         _debugSphere.transform.position = newSpherePos;
     }
-
-    public static GameObject CreateDebugSphere(float scale = 2f)
-    {
-        var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        go.transform.localScale = new Vector3(scale, scale, scale);
-
-        var collider = go.GetComponent<Collider>();
-        if (collider != null)
-            GameObject.Destroy(collider);
-
-        var renderer = go.GetComponent<MeshRenderer>();
-        var mat = new Material(Shader.Find("Standard"));
-        mat.color = new Color(1f, 0f, 0f, 0.35f);
-        mat.SetFloat("_Mode", 3);                       // Transparent
-        mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-        mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-        mat.SetInt("_ZWrite", 0);
-        mat.DisableKeyword("_ALPHATEST_ON");
-        mat.EnableKeyword("_ALPHABLEND_ON");
-        mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-        mat.renderQueue = 3000;
-
-        renderer.material = mat;
-
-        return go;
-    }
-
 
     public bool GetShouldEmitRandomEvent()
     {
@@ -231,7 +208,7 @@ public class RandomEventsManager
         return poolable[_rng.Next(poolable.Count)];
     }
 
-    public Obstacle GetRandomObstacleForType(ObstacleType type, bool forceEverythingInPool = false)
+    public Obstacle GetRandomObstacleForType(string type, bool forceEverythingInPool = false)
     {
         var poolable = ObstacleRegistry.Obstacles
             .Where(x => x.Type == type && (forceEverythingInPool || x.InPool != false))
@@ -240,23 +217,18 @@ public class RandomEventsManager
         return poolable[_rng.Next(poolable.Count)];
     }
 
-    public SpawnedEvent EmitObstacleEvent(EventRequest eventRequest, Obstacle incomingObstacle, GameObject prefab)
+    public SpawnedEvent EmitObstacleEvent(EventRequest eventRequest, Obstacle incomingObstacle)
     {
         bool showWarning = Main.settings.WarningChance == 0 ? false : UnityEngine.Random.value < Main.settings.WarningChance;
         if (showWarning)
             NotificationHelper.ShowNotificationViaRadio($"An obstacle has been reported ahead! Be careful!");
 
-        // avoid any reference issues too
-        var obstacle = OverrideObstacle != null ? OverrideObstacle.Clone() : incomingObstacle.Clone();
-
         var spawnCount =
-            obstacle.MaxSpawnCount != null && obstacle.MinSpawnCount != null ?
-                UnityEngine.Random.Range(obstacle.MinSpawnCount, obstacle.MaxSpawnCount.Value) :
-                obstacle.MaxSpawnCount != null ?
-                    UnityEngine.Random.Range(1, obstacle.MaxSpawnCount.Value) :
-                    obstacle.MinSpawnCount != null ?
-                        obstacle.MinSpawnCount :
-                        1;
+            incomingObstacle.MaxSpawnCount != null ?
+                UnityEngine.Random.Range(incomingObstacle.MinSpawnCount, incomingObstacle.MaxSpawnCount.Value) :
+                incomingObstacle.MaxSpawnCount != null ?
+                    UnityEngine.Random.Range(1, incomingObstacle.MaxSpawnCount.Value) :
+                        incomingObstacle.MinSpawnCount;
 
         var localPos = eventRequest.intendedPos;
 
@@ -265,13 +237,13 @@ public class RandomEventsManager
 
         var rotation = eventRequest.intendedRot != null ? eventRequest.intendedRot.Value : Quaternion.identity;
 
-        Logger.Log($"[RandomEventsManager] Emit obstacle event at position={localPos} rotation={rotation} type={obstacle.Type} prefab={prefab} count={spawnCount} ({obstacle.MinSpawnCount} -> {obstacle.MaxSpawnCount}) warn={showWarning}");
+        Logger.Log($"[RandomEventsManager] Emit obstacle event at position={localPos} rotation={rotation} type={incomingObstacle.Type} count={spawnCount} ({incomingObstacle.MinSpawnCount} -> {incomingObstacle.MaxSpawnCount}) warn={showWarning}");
 
-        var obstaclePosInSky = new Vector3(localPos.Value.x, localPos.Value.y + obstacle.SpawnHeightFromGround, localPos.Value.z);
+        var obstaclePosInSky = new Vector3(localPos.Value.x, localPos.Value.y + incomingObstacle.SpawnHeightFromGround, localPos.Value.z);
 
-        if (obstacle.TranslateOffset != null)
+        if (incomingObstacle.TranslateOffset != null)
         {
-            var offset = (Vector3)obstacle.TranslateOffset;
+            var offset = (Vector3)incomingObstacle.TranslateOffset;
             var transform = PlayerManager.Car.transform;
 
             // apply relative to forward/right of the spawner
@@ -282,33 +254,24 @@ public class RandomEventsManager
         }
 
         if (PreventAllObstacleDerailment)
-            obstacle.DerailThreshold = 0;
+            incomingObstacle.DerailThreshold = 0;
 
-        var objects = new List<GameObject>();
-
-        if (obstacle.MaxRadius != null)
+        if (incomingObstacle.MaxRadius != null)
         {
-            SpawnerHelper.Create = ObstacleSpawner.Create;
-
-            // SpawnerHelper.SpawnAround(
-            //     localPos.Value,
-            //     prefab,
-            //     spawnCount,
-            //     maxRadius: 1000,
-            //     minScale: obstacle.MinScale,
-            //     maxScale: obstacle.MaxScale,
-            //     obstacle: obstacle
-            // );
+            // TODO: do this better
+            SpawnerHelper.Create = (prefab, obstacle) =>
+            {
+                var obj = ObstacleSpawner.Create(prefab, obstacle);
+                obj.GetComponent<ObstacleComponent>().OnStrongImpact = (trainCar) => OnStrongImpact(trainCar, incomingObstacle);
+                return obj;
+            };
 
             AsyncHelper.StartCoroutine(
                 SpawnerHelper.SpawnAroundCoroutine(
+                    obstacle: incomingObstacle,
                     localPos.Value,
-                    prefab,
                     spawnCount,
-                    maxRadius: 1000,
-                    minScale: obstacle.MinScale,
-                    maxScale: obstacle.MaxScale,
-                    obstacle: obstacle
+                    maxRadius: 1000
                 )
             );
         }
@@ -318,11 +281,15 @@ public class RandomEventsManager
             {
                 Logger.Log($"[RandomEventsManager] Spawn obstacle #{i}");
 
-                var obj = ObstacleSpawner.Create(prefab, obstacle);
-                objects.Add(obj);
+                var prefab = ObstacleSpawner.GetRandomObstaclePrefab(incomingObstacle);
 
-                obj.transform.localScale = ObstacleSpawner.GetObstacleScale(obstacle);
+                Logger.Log($"[RandomEventsManager] Using prefab: {prefab}");
 
+                // NOTE: stored internally with obstacle spawner
+                var obj = ObstacleSpawner.Create(prefab, incomingObstacle);
+                obj.GetComponent<ObstacleComponent>().OnStrongImpact = (trainCar) => OnStrongImpact(trainCar, incomingObstacle);
+
+                obj.transform.localScale = ObstacleSpawner.GetObstacleScale(incomingObstacle);
                 obj.transform.rotation = rotation;
 
                 if (ObstacleSpawner.RotationMultiplier != null)
@@ -334,13 +301,13 @@ public class RandomEventsManager
                 spawnPos.x += jitterDistance;
 
                 // cannot spawn multiple objects inside each other otherwise physics freaks out
-                if (obstacle.VerticalSpawnGap != null)
+                if (incomingObstacle.VerticalSpawnGap != null)
                 {
-                    var gap = i * obstacle.VerticalSpawnGap.Value;
+                    var gap = i * incomingObstacle.VerticalSpawnGap.Value;
                     spawnPos.y += gap;
                 }
                 // TODO: combine with vertical?
-                else if (obstacle.HorizontalSpawnGap != null)
+                else if (incomingObstacle.HorizontalSpawnGap != null)
                 {
                     var track = eventRequest.intendedTrack;
 
@@ -348,29 +315,36 @@ public class RandomEventsManager
                         throw new Exception("Need a track");
 
                     float offset = i - (spawnCount - 1) / 2f;
-                    var gap = offset * obstacle.HorizontalSpawnGap.Value;
+                    var gap = offset * incomingObstacle.HorizontalSpawnGap.Value;
 
                     spawnPos.z += gap;
                 }
 
-                if (obstacle.JitterAmount > 0)
-                    spawnPos = GetJitteredPos(spawnPos, obstacle.JitterAmount);
+                if (incomingObstacle.JitterAmount > 0)
+                    spawnPos = GetJitteredPos(spawnPos, incomingObstacle.JitterAmount);
 
                 obj.transform.position = spawnPos;
 
-                if (obstacle.RotationOffset != null)
-                    obj.transform.rotation = obj.transform.rotation * obstacle.RotationOffset.Value;
+                if (incomingObstacle.RotationOffset != null)
+                    obj.transform.rotation = obj.transform.rotation * incomingObstacle.RotationOffset.Value;
             }
         }
 
         return new SpawnedEvent()
         {
             position = localPos.Value,
-            obstacle = obstacle,
+            obstacle = incomingObstacle,
             distance = eventRequest.distance!.Value, // trusting it
             count = spawnCount
         };
 
+    }
+
+    private void OnStrongImpact(TrainCar car, Obstacle obstacle)
+    {
+        Logger.Log($"Strong impact between car '{car}' and obstacle '{obstacle.Label}': causing derail");
+
+        car.Derail();
     }
 
     Vector3 GetJitteredPos(Vector3 pos, float maxJitterAmount)
@@ -408,23 +382,27 @@ public class RandomEventsManager
         eventRequest.intendedPos = obstacleLocalPos;
         eventRequest.intendedRot = rotationAlongTrack;
 
-        if (GetIsObstacleNearby(obstacleLocalPos) && eventRequest.ignoreNearbyCheck != true)
+        if (eventRequest.ignoreNearbyCheck != true && GetIsObstacleNearby(obstacleLocalPos))
         {
             Logger.Log($"[RandomEventsManager] Another obstacle is within area - skipping");
             return null;
         }
 
-        var currentBiome = GetCurrentBiome();
-
-        var inTunnel = TrainCarHelper.GetIsInTunnel(eventRequest.intendedPos.Value);
-
-        if (inTunnel)
+        if (TrainCarHelper.GetIsInTunnel(eventRequest.intendedPos.Value))
         {
             Logger.Log($"[RandomEventsManager] Target is inside a tunnel - skipping");
             return null;
         }
 
-        Logger.Log($"[RandomEventsManager] Current biome: {currentBiome} inTunnel={inTunnel}");
+        if (eventRequest.ignoreBuiltUpAreaCheck != true && BuiltUpAreaHelper.GetIsNearBuiltUpArea(eventRequest.intendedPos.Value))
+        {
+            Logger.Log($"[RandomEventsManager] Target is near a built up area - skipping");
+            return null;
+        }
+
+        var currentBiome = PlayerUtils.GetCurrentBiome();
+
+        Logger.Log($"[RandomEventsManager] Current biome: {currentBiome}");
 
         Biome? biomeToUse;
 
@@ -435,12 +413,18 @@ public class RandomEventsManager
         else
             biomeToUse = currentBiome;
 
-        Obstacle? obstacle;
+        Obstacle? obstacle = null;
 
-        if (eventRequest.obstacleType != null)
-            obstacle = GetRandomObstacleForType(eventRequest.obstacleType.Value, eventRequest.forceEverythingInPool);
-        else
-            obstacle = biomeToUse != null ? GetRandomObstacleForBiome(biomeToUse.Value) : GetRandomObstacle();
+        if (eventRequest.obstacle != null)
+            obstacle = eventRequest.obstacle;
+
+        if (obstacle == null)
+        {
+            if (eventRequest.obstacleType != null)
+                obstacle = GetRandomObstacleForType(eventRequest.obstacleType, eventRequest.forceEverythingInPool);
+            else
+                obstacle = biomeToUse != null ? GetRandomObstacleForBiome(biomeToUse.Value) : GetRandomObstacle();
+        }
 
         if (obstacle == null)
         {
@@ -450,61 +434,9 @@ public class RandomEventsManager
 
         Logger.Log($"[RandomEventsManager] Using obstacle:\n{obstacle}");
 
-        var prefab = GetObstaclePrefab(obstacle);
-
-        Logger.Log($"[RandomEventsManager] Using prefab: {prefab}");
-
-        return EmitObstacleEvent(eventRequest, obstacle, prefab);
+        return EmitObstacleEvent(eventRequest, obstacle);
     }
 
-    public Biome GetCurrentBiome()
-    {
-        BiomeProvider instance = SingletonBehaviour<BiomeProvider>.Instance;
-        var currentBiome = instance.CurrentBiome;
-        return currentBiome;
-    }
-
-    public GameObject GetObstaclePrefab(Obstacle obstacle)
-    {
-        AssetBundle bundle;
-
-        if (_obstacleBundles.ContainsKey(obstacle.Type))
-        {
-            bundle = _obstacleBundles[obstacle.Type];
-        }
-        else
-        {
-            bundle = LoadObstacleBundle(obstacle);
-
-            _obstacleBundles[obstacle.Type] = bundle;
-        }
-
-        var all = bundle.LoadAllAssets<GameObject>();
-
-        Logger.Log($"[RandomEventsManager] Found asset objects: {string.Join(",", all.Select(x => x.name))} prefabName={obstacle.PrefabName}");
-
-        if (obstacle.PrefabName != null)
-            return all.First(x => x.name == obstacle.PrefabName) ?? throw new Exception($"Prefab '{obstacle.PrefabName}' not found in AssetBundle {bundle}");
-
-        return all[_rng.Next(all.Length)];
-    }
-
-    public AssetBundle LoadBundle(string pathInsideAssetBundles)
-    {
-        var bundlePath = Path.Combine(Main.ModEntry.Path, "Dependencies/AssetBundles", pathInsideAssetBundles);
-
-        Logger.Log($"[RandomEventsManager] Loading bundle from: {bundlePath}");
-
-        if (!File.Exists(bundlePath))
-            throw new Exception($"Asset bundle not found at {bundlePath}");
-
-        return AssetBundle.LoadFromFile(bundlePath);
-    }
-
-    public AssetBundle LoadObstacleBundle(Obstacle obstacle)
-    {
-        return LoadBundle(obstacle.AssetBundleName);
-    }
 
     public (RailTrack, Vector3, Quaternion) GetObstaclePositionFromCarLocal(float distance, bool? flipDirection = false)
     {
@@ -543,19 +475,5 @@ public class RandomEventsManager
 
         // triggers re-creation
         GameObject.Destroy(_debugSphere);
-    }
-
-    public void Stop()
-    {
-        Logger.Log("[RandomEventsManager] Stop");
-        GameObject.Destroy(_updateDriver);
-        GameObject.Destroy(_debugSphere);
-
-        foreach (var kv in _obstacleBundles)
-        {
-            var assetBundle = kv.Value;
-            Logger.Log($"[RandomEventsManager] Unload '{assetBundle.name}'");
-            assetBundle.Unload(true);
-        }
     }
 }

@@ -10,9 +10,10 @@ public static class ObstacleSpawner
 {
     private static UnityModManager.ModEntry.ModLogger Logger => Main.ModEntry.Logger;
     private static List<ObstacleComponent> _spawnedObstacles = [];
-    private static Dictionary<ObstacleType, PhysicMaterial> _physicMaterialsForObstacles = [];
+    private static Dictionary<string, PhysicMaterial> _physicMaterialsForObstacles = [];
     public static Vector3? ScaleMultiplier = null;
     public static Vector3? RotationMultiplier = null;
+    public static int lastObstacleId = -1;
 
     static ObstacleSpawner()
     {
@@ -22,7 +23,13 @@ public static class ObstacleSpawner
         });
     }
 
-    private static PhysicMaterial GetPhysicMaterialForObstacle(Obstacle obstacle)
+    public static int GetNewObstacleId()
+    {
+        lastObstacleId++;
+        return lastObstacleId;
+    }
+
+    public static PhysicMaterial GetPhysicMaterialForObstacle(Obstacle obstacle)
     {
         if (_physicMaterialsForObstacles.ContainsKey(obstacle.Type))
             return _physicMaterialsForObstacles[obstacle.Type];
@@ -43,8 +50,9 @@ public static class ObstacleSpawner
     {
         Main.ModEntry.Logger.Log($"[ObstacleSpawner] Clear obstacle '{obstacleComp}'");
 
-        _spawnedObstacles.Remove(obstacleComp);
         GameObject.Destroy(obstacleComp.gameObject);
+
+        _spawnedObstacles.Remove(obstacleComp);
     }
 
     public static void CleanupObstacle(ObstacleComponent obstacleComp)
@@ -70,6 +78,9 @@ public static class ObstacleSpawner
         {
             ClearObstacle(obstacle);
         }
+
+        _spawnedObstacles.Clear();
+        lastObstacleId = -1;
     }
 
     public static void UnhighlightAllSpawnedObstacles()
@@ -88,25 +99,47 @@ public static class ObstacleSpawner
 
         if (collider == null)
         {
-            Logger.Log("[ObstacleSpawner] No collider - adding mesh collider...");
+            // skinned renderers so more complex so just use box
+            if (obstacle.AnimalType != null)
+            {
+                Logger.Log("[ObstacleSpawner] Is an animal so creating new collider");
 
-            MeshCollider meshCollider = obj.AddComponent<MeshCollider>();
-            meshCollider.convex = true;
+                collider = MeshUtils.AddOrUpdateCombinedBoxCollider(obj);
+            }
+            else
+            {
+                Logger.Log("[ObstacleSpawner] Is NOT an animal so creating a mesh collider");
 
-            MeshFilter meshFilter = obj.GetComponentInChildren<MeshFilter>();
+                MeshCollider meshCollider = obj.AddComponent<MeshCollider>();
+                meshCollider.convex = true;
 
-            if (meshFilter == null)
-                throw new Exception($"No mesh filter found inside '{obj}'");
+                var meshFilter = obj.GetComponentInChildren<MeshFilter>();
+                var skinned = obj.GetComponentInChildren<SkinnedMeshRenderer>();
 
-            meshCollider.sharedMesh = meshFilter.sharedMesh;
-            collider = meshCollider;
+                if (meshFilter == null && skinned == null)
+                    throw new Exception($"No mesh found inside '{obj}'");
 
-            Logger.Log($"[ObstacleSpawner] No collider - adding mesh collider done - collider={meshCollider} mesh={meshCollider.sharedMesh}");
+                Mesh meshToUse;
+
+                if (meshFilter != null)
+                {
+                    meshToUse = meshFilter.sharedMesh;
+                }
+                else
+                {
+                    var bakedMesh = new Mesh();
+                    skinned.BakeMesh(bakedMesh);
+                    meshToUse = bakedMesh;
+                }
+
+                meshCollider.sharedMesh = meshToUse;
+                collider = meshCollider;
+            }
         }
 
         if (collider.material == null)
         {
-            Logger.Log($"[ObstacleSpawner] No physic material - adding...");
+            Logger.Log($"[ObstacleSpawner] No physic material, adding...");
             collider.material = GetPhysicMaterialForObstacle(obstacle);
         }
     }
@@ -126,7 +159,7 @@ public static class ObstacleSpawner
         return localScale;
     }
 
-    public static GameObject Create(GameObject prefab, Obstacle obstacle)
+    public static GameObject Create(GameObject prefab, Obstacle obstacleTemplate)
     {
         // keep in the world as it loads
         // TODO: cleanup to avoid memory issues
@@ -135,13 +168,32 @@ public static class ObstacleSpawner
         var newObj = UnityEngine.Object.Instantiate(prefab, Vector3.zero, Quaternion.identity, parent);
 
         var obstacleComp = newObj.AddComponent<ObstacleComponent>();
+
+        var obstacle = obstacleTemplate.Clone();
+        obstacle.Id = GetNewObstacleId();
+
         obstacleComp.obstacle = obstacle;
-        obstacleComp.OnStrongImpact = (trainCar) => OnStrongImpact(trainCar, obstacle);
 
         // TODO: do this help stop removing on tile load?
         // Object.DontDestroyOnLoad(newObj);
 
         newObj.layer = (int)DVLayer.Train_Big_Collider;
+
+        if (obstacle.AnimalType != null)
+        {
+            var animalPrefab = AnimalHelper.GetRandomPrefab(obstacle.AnimalType.Value);
+
+            var explodingBase = newObj.transform.Find(ObstacleComponent.baseTransformName);
+
+            var animalParent = explodingBase ?? newObj.transform;
+
+            GameObject obj = (GameObject)GameObject.Instantiate(animalPrefab, animalParent, instantiateInWorldSpace: false);
+
+            // without this the cats go craaaaaazy
+            obj.transform.localPosition = new Vector3(0, 0, 0);
+
+            Logger.Log($"Added animal '{obstacle.AnimalType}' into {animalParent} = {obj}");
+        }
 
         var rb = newObj.GetComponent<Rigidbody>() ?? newObj.AddComponent<Rigidbody>();
         rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic; // old: Continuous
@@ -166,15 +218,13 @@ public static class ObstacleSpawner
 
         _spawnedObstacles.Add(obstacleComp);
 
-        Logger.Log($"[ObstacleSpawner] Created obstacle type={obstacle.Type} go={newObj} prefab={prefab} scale={newObj.transform.localScale} scaleOffset={obstacle.ScaleOffset} overrideScale={ScaleMultiplier}");
+        // Logger.Log($"[ObstacleSpawner] Created obstacle type={obstacle.Type} go={newObj} prefab={prefab} scale={newObj.transform.localScale} scaleOffset={obstacle.ScaleOffset} overrideScale={ScaleMultiplier}");
 
         return newObj;
     }
 
-    private static void OnStrongImpact(TrainCar car, Obstacle obstacle)
+    public static GameObject GetRandomObstaclePrefab(Obstacle obstacle)
     {
-        Logger.Log($"[ObstacleSpawner] On strong impact car={car} type={obstacle.Type}");
-
-        car.Derail();
+        return AssetBundleHelper.GetRandomObstaclePrefab(obstacle);
     }
 }
