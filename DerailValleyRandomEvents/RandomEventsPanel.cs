@@ -808,7 +808,8 @@ public class RandomEventsPanel : MonoBehaviour, IModToolbarPanel
         GUILayout.BeginHorizontal();
         if (GUILayout.Button("Save JSON"))
             OverrideObstacleJson();
-
+        if (GUILayout.Button("Reload All JSON"))
+            ReloadAllJson();
         if (GUILayout.Button("Open Folder"))
             OpenJsonFolder();
         GUILayout.EndHorizontal();
@@ -825,6 +826,16 @@ public class RandomEventsPanel : MonoBehaviour, IModToolbarPanel
         }
 
         ObstacleRegistry.SaveObstacle(_overrideObstacle.Type, _overrideObstacle, createInitialBackup: true);
+    }
+
+    void ReloadAllJson()
+    {
+        Logger.Log("[Panel] Reload all JSON");
+
+        ObstacleRegistry.PopulateObstacles();
+
+        if (_selectedType != null)
+            _overrideObstacle = ObstacleRegistry.GetObstacleByType(_selectedType).Clone();
     }
 
     void OpenJsonFolder()

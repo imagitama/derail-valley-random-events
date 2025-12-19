@@ -23,5 +23,6 @@
 	"LookAtPlayer": true,
 	"AnimalType": "Pig",
 	"ScaredOfHorn": true,
-	"TurnSpeed": 180.0
+	"TurnSpeed": 180.0,
+	"UprightOnTipOver": true
 }

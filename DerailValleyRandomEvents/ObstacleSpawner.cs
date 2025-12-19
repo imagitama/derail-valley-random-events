@@ -227,4 +227,24 @@ public static class ObstacleSpawner
     {
         return AssetBundleHelper.GetRandomObstaclePrefab(obstacle);
     }
+
+    public static void ApplyTranslateOffset(Vector3 offsetPercent, GameObject obj)
+    {
+        var renderers = obj.GetComponentsInChildren<Renderer>();
+        var bounds = renderers[0].bounds;
+        for (int i = 1; i < renderers.Length; i++)
+            bounds.Encapsulate(renderers[i].bounds);
+
+        var size = bounds.size;
+
+        var worldOffset = new Vector3(
+            size.x * offsetPercent.x,
+            size.y * offsetPercent.y,
+            size.z * offsetPercent.z
+        );
+
+        Logger.Log($"ApplyTranslateOffset offset={offsetPercent} obj={obj} worldOffset={worldOffset}");
+
+        obj.transform.position += worldOffset;
+    }
 }

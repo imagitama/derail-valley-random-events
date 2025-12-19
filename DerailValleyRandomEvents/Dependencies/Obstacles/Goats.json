@@ -23,5 +23,6 @@
 	"LookAtPlayer": true,
 	"AnimalType": "Goat",
 	"ScaredOfHorn": true,
-	"TurnSpeed": 180.0
+	"TurnSpeed": 180.0,
+	"UprightOnTipOver": true
 }

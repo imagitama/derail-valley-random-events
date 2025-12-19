@@ -26,5 +26,6 @@
 	"TurnSpeed": 90.0,
 	"ScaredTurnSpeed": 360.0,
 	"MoveSpeed": 0.25,
-	"ScaredMoveSpeed": 1.0
+	"ScaredMoveSpeed": 1.0,
+	"UprightOnTipOver": true
 }

@@ -22,5 +22,6 @@
 	"ExplodeUpwards": 1,
 	"CenterOfMass": { "x": 0.0, "y": 1.0, "z": 0.0 },
 	"LookAtPlayer": true,
-	"ScaredOfHorn": true
+	"ScaredOfHorn": true,
+	"UprightOnTipOver": true
 }

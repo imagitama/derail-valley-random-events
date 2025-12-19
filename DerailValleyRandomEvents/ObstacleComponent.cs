@@ -91,6 +91,7 @@ public class ObstacleComponent : MonoBehaviour
 
         // Debug.Log($"Animator: {animator}");
 
+        // TODO: change to obstacle flag to disconnect from animals
         if (obstacle.AnimalType != null)
             ScheduleNextPickNewWalkTarget();
     }
@@ -136,7 +137,7 @@ public class ObstacleComponent : MonoBehaviour
             KeepLookingAtPlayer();
         else if (GetNeedsToMoveSmoothlyTowardsTarget())
             MoveSmoothlyTowardsTarget();
-        else
+        else if (GetIfObstacleNeedsToBeUpright())
             KeepUpright();
     }
 
@@ -240,6 +241,9 @@ public class ObstacleComponent : MonoBehaviour
 
     bool GetIsTippedOver()
     {
+        if (GetIfObstacleNeedsToBeUpright() == false)
+            return false;
+
         var up = rb.transform.up;
         return Vector3.Angle(up, Vector3.up) > maxUprightAngle;
     }
@@ -442,6 +446,11 @@ public class ObstacleComponent : MonoBehaviour
 
         var targetRot = Quaternion.LookRotation(forward.normalized, Vector3.up);
         rb.MoveRotation(Quaternion.Slerp(rb.rotation, targetRot, 10f * Time.fixedDeltaTime));
+    }
+
+    bool GetIfObstacleNeedsToBeUpright()
+    {
+        return obstacle.UprightOnTipOver == true;
     }
 
     void ForceUprightIfNeeded()

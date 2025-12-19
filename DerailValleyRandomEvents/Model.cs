@@ -42,7 +42,7 @@ public class Obstacle
     // offsets
     public Vector3? ScaleOffset;
     public Quaternion? RotationOffset;
-    public Vector3? TranslateOffset;
+    public Vector3? TranslateOffset; // percentages eg. x=0.5 will move x=50% from center
 
     // exploding!
     public float? ExplodeThreshold; // newton-seconds (0 to disable, light bump in DE2 is 130,000~)
@@ -63,6 +63,7 @@ public class Obstacle
     public float TurnSpeed = 45f; // degrees per sec
     public float ScaredTurnSpeed = 360f; // degrees per sec
     public float AnimationSpeedScale = 1f;
+    public bool UprightOnTipOver = false;
 
     // internal (do not copy)
     public int Id = -1;
@@ -119,7 +120,8 @@ public class Obstacle
             ScaredMoveSpeed = ScaredMoveSpeed,
             TurnSpeed = TurnSpeed,
             ScaredTurnSpeed = ScaredTurnSpeed,
-            AnimationSpeedScale = AnimationSpeedScale
+            AnimationSpeedScale = AnimationSpeedScale,
+            UprightOnTipOver = UprightOnTipOver
         };
     }
 
@@ -167,7 +169,8 @@ $"ScaredOfHorn={ScaredOfHorn}," +
 $"MoveSpeed={MoveSpeed}," +
 $"ScaredMoveSpeed={ScaredMoveSpeed}," +
 $"TurnSpeed={TurnSpeed}," +
-$"AnimationSpeedScale={AnimationSpeedScale}" +
+$"AnimationSpeedScale={AnimationSpeedScale}," +
+$"UprightOnTipOver={UprightOnTipOver}" +
 ")";
     }
 }

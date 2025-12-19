@@ -239,20 +239,6 @@ public class RandomEventsManager
 
         Logger.Log($"[RandomEventsManager] Emit obstacle event at position={localPos} rotation={rotation} type={incomingObstacle.Type} count={spawnCount} ({incomingObstacle.MinSpawnCount} -> {incomingObstacle.MaxSpawnCount}) warn={showWarning}");
 
-        var obstaclePosInSky = new Vector3(localPos.Value.x, localPos.Value.y + incomingObstacle.SpawnHeightFromGround, localPos.Value.z);
-
-        if (incomingObstacle.TranslateOffset != null)
-        {
-            var offset = (Vector3)incomingObstacle.TranslateOffset;
-            var transform = PlayerManager.Car.transform;
-
-            // apply relative to forward/right of the spawner
-            obstaclePosInSky +=
-                transform.forward * offset.z +   // forward/back
-                transform.right * offset.x +   // left/right
-                transform.up * offset.y;    // up/down
-        }
-
         if (PreventAllObstacleDerailment)
             incomingObstacle.DerailThreshold = 0;
 
@@ -297,6 +283,8 @@ public class RandomEventsManager
 
                 var jitterDistance = 0.25f;
 
+                var obstaclePosInSky = new Vector3(localPos.Value.x, localPos.Value.y + incomingObstacle.SpawnHeightFromGround, localPos.Value.z);
+
                 Vector3 spawnPos = obstaclePosInSky;
                 spawnPos.x += jitterDistance;
 
@@ -327,6 +315,9 @@ public class RandomEventsManager
 
                 if (incomingObstacle.RotationOffset != null)
                     obj.transform.rotation = obj.transform.rotation * incomingObstacle.RotationOffset.Value;
+
+                if (incomingObstacle.TranslateOffset != null)
+                    ObstacleSpawner.ApplyTranslateOffset(offsetPercent: incomingObstacle.TranslateOffset.Value, obj);
             }
         }
 
