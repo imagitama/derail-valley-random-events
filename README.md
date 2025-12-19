@@ -4,13 +4,16 @@
 
 A mod for the game [Derail Valley](https://store.steampowered.com/app/588030/Derail_Valley/) that makes random events occur as you're driving your train through the world.
 
-**Depends on mod [Comms Radio API](https://www.nexusmods.com/derailvalley/mods/813?tab=files)**
+## Install
+
+**Depends on mod [Comms Radio API](https://www.nexusmods.com/derailvalley/mods/813?tab=files) and [DerailValleyModToolbar](https://www.nexusmods.com/derailvalley/mods/1367)**
+
+Download the zip and use Unity Mod Manager to install it.
 
 ## Known issues
 
-- only relies on your current biome so may spawn in a train station or weird place
-- may spawn in tunnels
-- cows are clumsy and glitchy :)
+- obstacle physics may spaz out
+- cows/animal AI is very basic and glitchy
 
 ## Events
 
@@ -28,9 +31,12 @@ Clear an obstacle by using your Comm Radio and selecting the "Clear Obstacle" op
 | Treefall  | Forest        | A tree has fallen onto the track.                            |
 | Cows      | Meadow, Field | Some clumsy cows have walked onto the track. Honk your horn! |
 
-## Install
+Some obstacles can only be manually spawned from the panel:
 
-Download the zip and use Unity Mod Manager to install it.
+| Obstacle      | Description                               |
+| ------------- | ----------------------------------------- |
+| FunRamp       | Make it fly!                              |
+| Other animals | A variety of animals already in the game. |
 
 ## When it happens
 
@@ -43,17 +49,37 @@ Every second it checks some conditions:
 
 If this happens, a random obstacle will spawn ahead of your train which you can clear away using your comm radio (or a little nudge!).
 
-## Adding/editing a new obstacle mesh
+## Creating your own obstacles
 
-1. In Unity 2019 create your scene
-2. Create a new gameobject called whatever and add a mesh inside it at 0,0,0 (use whatever materials/components you like)\
-   **Ensure your FBX/OBJ has "Read/write" enabled!**
-3. Create a prefab of your obstacle
-4. Assign it to an assetbundle that corresponds with your Obstacle definition eg. `trees` or `rocks`
-5. Export assetbundle
-6. Copy assetbundle into the mod's dependencies & launch game
+Create a JSON file under `Dependencies/Obstacles` and define all of your obstacle parameters.
 
-If your gameobject doesn't have a collider or rigidbody component it will be added for you (using the first mesh it finds as a MeshCollider).
+In Unity create any number of prefabs and place them in an [AssetBundle](https://docs.unity3d.com/6000.3/Documentation/Manual/AssetBundlesIntro.html). The mod will randomly pick one.
+
+### Exploding
+
+Make sure your prefab is set up exactly like this:
+
+```
+MyPrefabNamedWhatever
+  [Base]
+    ...anything you want to hide when it explodes...
+  [Explode]
+    ...anything you want to show when it explodes...
+```
+
+The mod will automatically hide everything inside of `[Explode]`.
+
+On explosion:
+
+- Anything inside of `[Base]` will be hidden
+
+- Anything inside of `[Explode]` will be shown
+
+- Any particle systems inside of `[Explode]` will be force played **once** for explosion effects
+
+- Any rigidbodies inside of `[Explode]` will be launched in every direction
+
+Note the separate meshes/rigidbodies are still considered part of the obstacle so cleaning up one bit will clean it all up.
 
 ## Development
 
