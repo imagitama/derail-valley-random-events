@@ -1,5 +1,6 @@
 # 0.0.6
 
+- obstacles are saved in JSON
 - can now manually spawn in-game animals:
   - cows
   - goats

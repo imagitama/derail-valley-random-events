@@ -340,7 +340,7 @@ public class ObstacleComponent : MonoBehaviour
         // if (obstacle.Id == 0)
         //     Debug.Log(speed);
 
-        if (_targetPos != null || _targetRot != null || speed > 0.001f)
+        if (_targetPos != null || _targetRot != null)
         {
             var dist = _targetPos != null ? Vector3.Distance(transform.position, _targetPos.Value) : 0;
             float num = dist / deltaTime * obstacle.AnimationSpeedScale;
