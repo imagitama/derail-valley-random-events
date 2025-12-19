@@ -60,7 +60,7 @@ If this happens, a random obstacle will spawn ahead of your train which you can 
 
 ## Creating your own obstacles
 
-Create a JSON file under `Dependencies/Obstacles` and define all of your obstacle parameters.
+Create a JSON file under `Dependencies/Obstacles` and define all of your obstacle parameters. See [Model.cs](./DerailValleyRandomEvents/Model.cs) for params.
 
 In Unity create any number of prefabs and place them in an [AssetBundle](https://docs.unity3d.com/6000.3/Documentation/Manual/AssetBundlesIntro.html) inside `Dependencies/AssetBundles`. The mod will randomly pick a prefab.
 
