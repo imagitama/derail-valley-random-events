@@ -804,5 +804,33 @@ public class RandomEventsPanel : MonoBehaviour, IModToolbarPanel
             obstacleRef.JitterAmount = jitterAmountNum;
         }
         GUILayout.EndHorizontal();
+
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Button("Save JSON"))
+            OverrideObstacleJson();
+
+        if (GUILayout.Button("Open Folder"))
+            OpenJsonFolder();
+        GUILayout.EndHorizontal();
+    }
+
+    void OverrideObstacleJson()
+    {
+        Logger.Log($"[Panel] Override obstacle JSON:\n{_overrideObstacle}");
+
+        if (_overrideObstacle == null)
+        {
+            Logger.Log("Need an obstacle!!");
+            return;
+        }
+
+        ObstacleRegistry.SaveObstacle(_overrideObstacle.Type, _overrideObstacle, createInitialBackup: true);
+    }
+
+    void OpenJsonFolder()
+    {
+        Logger.Log("[Panel] Open JSON folder");
+
+        FileBrowserUtils.OpenFolder(ObstacleRegistry.jsonDirPath);
     }
 }

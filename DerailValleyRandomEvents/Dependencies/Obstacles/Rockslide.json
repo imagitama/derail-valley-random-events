@@ -1,0 +1,19 @@
+{
+	"Type": "Rockslide",
+	"AssetBundleName": "rocks",
+	"Biomes": ["Rock"],
+	"MinSpawnCount": 5,
+	"MaxSpawnCount": 10,
+	"SpawnHeightFromGround": 5.0,
+	"VerticalSpawnGap": 2.0,
+	"MinScale": 1.5,
+	"MaxScale": 2.0,
+	"MinMass": 5000.0,
+	"MaxMass": 7500.0,
+	"Drag": 0,
+	"AngularDrag": 1.0,
+	"DynamicFriction": 0.9,
+	"StaticFriction": 0.9,
+	"Bounciness": 0,
+	"Gravity": 2
+}

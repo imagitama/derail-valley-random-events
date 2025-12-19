@@ -1,0 +1,23 @@
+{
+	"Type": "FunRamp",
+	"InPool": false,
+	"PrefabName": "ObstacleRamp",
+	"AssetBundleName": "fun",
+	"MinSpawnCount": 1,
+	"MaxSpawnCount": 1,
+	"SpawnHeightFromGround": 2.0,
+	"VerticalSpawnGap": 3.0,
+	"MinScale": 1.0,
+	"MaxScale": 1.0,
+	"MinMass": 999999.0,
+	"MaxMass": 999999.0,
+	"Drag": 0,
+	"AngularDrag": 0,
+	"DynamicFriction": 0,
+	"StaticFriction": 0,
+	"Bounciness": 0,
+	"JitterAmount": 0,
+	"ScaleOffset": { "x": 1.5, "y": 1.0, "z": 1.5 },
+	"RotationOffset": { "x": 0.0, "y": -90.0, "z": 0.0 },
+	"DerailThreshold": 5000
+}

@@ -32,6 +32,7 @@
 		<Reference Include="DV.UI" />
 		<Reference Include="DV.UIFramework" />
 		<Reference Include="DV.WeatherSystem" />
+		<Reference Include="Newtonsoft.Json" />
 	</ItemGroup>
 
 	<!-- Other Mods -->

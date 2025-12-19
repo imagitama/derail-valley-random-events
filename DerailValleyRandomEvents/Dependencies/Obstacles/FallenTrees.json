@@ -1,0 +1,21 @@
+{
+	"Type": "FallenTrees",
+	"AssetBundleName": "trees",
+	"Biomes": ["Forest"],
+	"MinSpawnCount": 1,
+	"MaxSpawnCount": 1,
+	"SpawnHeightFromGround": 2.0,
+	"VerticalSpawnGap": 3.0,
+	"MinScale": 4.0,
+	"MaxScale": 6.0,
+	"MinMass": 15000.0,
+	"MaxMass": 25000.0,
+	"Drag": 0,
+	"AngularDrag": 3.0,
+	"DynamicFriction": 0.9,
+	"StaticFriction": 0.9,
+	"Bounciness": 0,
+	"RotationOffset": { "x": 90.0, "y": 90.0, "z": 0.0 },
+	"TranslateOffset": { "x": 10.0, "y": 0.0, "z": 0.0 },
+	"Gravity": 2
+}

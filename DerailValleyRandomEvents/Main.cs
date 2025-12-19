@@ -37,6 +37,8 @@ public static class Main
             harmony = new Harmony(modEntry.Info.Id);
             harmony.PatchAll(Assembly.GetExecutingAssembly());
 
+            ObstacleRegistry.PopulateObstacles();
+
             randomEventsManager = new RandomEventsManager();
             commsRadioManager = new CommsRadioManager();
 

@@ -337,8 +337,8 @@ public class ObstacleComponent : MonoBehaviour
 
         float speed = rb.velocity.magnitude;
 
-        if (obstacle.Id == 0)
-            Debug.Log(speed);
+        // if (obstacle.Id == 0)
+        //     Debug.Log(speed);
 
         if (_targetPos != null || _targetRot != null || speed > 0.001f)
         {
