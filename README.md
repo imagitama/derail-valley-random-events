@@ -4,16 +4,25 @@
 
 A mod for the game [Derail Valley](https://store.steampowered.com/app/588030/Derail_Valley/) that makes random events occur as you're driving your train through the world.
 
+Getting bored driving around the world? Want some excitement? Watch out for a rockslide! Or fallen trees! Or cows wandering onto the track!
+
+![](./screenshot.png)
+
+## WIP Status
+
+I'm using it in my main career save and it kind of works. Just be prepared for glitchiness and reloading auto-saves.
+
+### Known issues
+
+- obstacle physics may spaz out
+  - they may even launch into the air so you will get reports of obstacles that never appear
+- cows/animal AI is very basic and glitchy
+
 ## Install
 
 **Depends on mod [Comms Radio API](https://www.nexusmods.com/derailvalley/mods/813?tab=files) and [DerailValleyModToolbar](https://www.nexusmods.com/derailvalley/mods/1367)**
 
 Download the zip and use Unity Mod Manager to install it.
-
-## Known issues
-
-- obstacle physics may spaz out
-- cows/animal AI is very basic and glitchy
 
 ## Events
 
