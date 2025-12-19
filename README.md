@@ -53,7 +53,9 @@ If this happens, a random obstacle will spawn ahead of your train which you can 
 
 Create a JSON file under `Dependencies/Obstacles` and define all of your obstacle parameters.
 
-In Unity create any number of prefabs and place them in an [AssetBundle](https://docs.unity3d.com/6000.3/Documentation/Manual/AssetBundlesIntro.html). The mod will randomly pick one.
+In Unity create any number of prefabs and place them in an [AssetBundle](https://docs.unity3d.com/6000.3/Documentation/Manual/AssetBundlesIntro.html) inside `Dependencies/AssetBundles`. The mod will randomly pick a prefab.
+
+That should be it. If the player is in the correct biome and the conditions are met, your custom obstacle will be emitted. You can test it using the panel.
 
 ### Exploding
 
